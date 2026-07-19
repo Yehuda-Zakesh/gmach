@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -19,7 +21,23 @@ jobs:
 
       - name: Build (portable single exe)
         working-directory: src-tauri
-        run: cargo tauri build
+        shell: pwsh
+        run: |
+          cargo tauri build 2>&1 | Tee-Object -FilePath "$env:GITHUB_WORKSPACE\build-log.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish build log on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git checkout --orphan build-log
+          git rm -rf . 2>$null
+          Copy-Item "$env:GITHUB_WORKSPACE\build-log.txt" "build-log.txt" -Force
+          git add build-log.txt
+          git commit -m "Build log (auto, run $env:GITHUB_RUN_ID)"
+          git push -f origin build-log
 
       - name: Locate exe
         id: find
