@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "settings": {
+    "appTitle": "ספריית התוכנות",
+    "appSubtitle": "עיון והורדה של תוכנות מתוך הכונן",
+    "contact": {
+      "visible": true,
+      "name": "",
+      "phone": "",
+      "email": "",
+      "note": ""
+    },
+    "softwareRoot": "software",
+    "ui": {
+      "accent": "#4f7cff",
+      "theme": "auto",
+      "newDays": 21,
+      "showCategories": true
+    },
+    "security": {
+      "auth": null
+    },
+    "lastScan": null,
+    "language": "he"
+  },
+  "categories": [],
+  "items": [],
+  "meta": {
+    "generatedAt": "",
+    "generatedBy": "seed",
+    "appVersion": "1.0.0"
+  }
+}

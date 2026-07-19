@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ממשק ניהול — ספריית התוכנות</title>
+
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+
+  <body>
+    <!-- ============================ GATE ============================ -->
+    <!-- Rendered by admin/main.js: either first-run setup or the login form. -->
+    <div class="gate" id="gate" hidden>
+      <div class="gate__card" id="gate-card"></div>
+    </div>
+
+    <!-- ========================== CONSOLE =========================== -->
+    <div class="console" id="console" hidden>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar__brand">
+          <div class="sidebar__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+              <path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9 7 7 M17 17l2.1 2.1 M19.1 4.9 17 7 M7 17l-2.1 2.1" />
+            </svg>
+          </div>
+          <div>
+            <div class="sidebar__name">ממשק ניהול</div>
+            <div class="sidebar__role">ספריית התוכנות</div>
+          </div>
+        </div>
+
+        <nav aria-label="ניווט ראשי" style="display: contents">
+          <button class="nav-item is-active" type="button" data-view="library">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z" />
+              <path d="M4 19.5A2 2 0 0 1 6 18h13" />
+            </svg>
+            <span>ספרייה</span>
+            <span class="nav-item__count" id="nav-count">0</span>
+          </button>
+
+          <button class="nav-item" type="button" data-view="settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+              <path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3 M4.9 4.9 7 7 M17 17l2.1 2.1 M19.1 4.9 17 7 M7 17l-2.1 2.1" />
+            </svg>
+            <span>הגדרות</span>
+          </button>
+
+          <button class="nav-item" type="button" data-view="help">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
+              <path d="M12 17h.01" />
+            </svg>
+            <span>עזרה</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__spacer"></div>
+        <div class="sidebar__status" id="fs-status"></div>
+      </aside>
+
+      <header class="topbar">
+        <h1 class="topbar__title" id="top-title">ניהול הספרייה</h1>
+        <span class="dirty-dot" id="dirty-dot" hidden title="יש שינויים שלא נשמרו"></span>
+
+        <div class="topbar__actions" id="top-actions">
+          <button class="btn" type="button" id="preview-btn" title="פתיחת הממשק הציבורי">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+            </svg>
+            תצוגה מקדימה
+          </button>
+
+          <button class="btn btn--primary" type="button" id="save-btn" title="שמירה (Ctrl+S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+              <path d="M17 21v-8H7v8" />
+              <path d="M7 3v5h8" />
+            </svg>
+            שמירה
+          </button>
+
+          <button class="btn btn--ghost btn--icon" type="button" id="lock-btn" title="נעילה ויציאה"
+                  aria-label="נעילה ויציאה">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="M16 17l5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <!-- ---------------------- LIBRARY ---------------------- -->
+        <section class="view" id="view-library">
+          <div class="stat-row" id="lib-stats"></div>
+
+          <div class="panel">
+            <div class="panel__head">
+              <span class="panel__title">פריטי הספרייה</span>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button class="btn" type="button" id="connect-btn" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z" />
+                  </svg>
+                  חיבור תיקיית הפרויקט
+                </button>
+
+                <button class="btn btn--danger" type="button" id="purge-btn" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  ניקוי חסרים
+                </button>
+
+                <button class="btn btn--primary" type="button" id="scan-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                    <path d="M3 12h18" />
+                  </svg>
+                  סריקת תיקייה
+                </button>
+              </div>
+            </div>
+
+            <div class="table__toolbar">
+              <label class="sr-only" for="lib-search">חיפוש בספרייה</label>
+              <input class="input" id="lib-search" type="search" placeholder="חיפוש לפי שם, נתיב או קטגוריה…"
+                     autocomplete="off" />
+
+              <label class="sr-only" for="lib-type">סינון לפי סוג</label>
+              <select class="select" id="lib-type">
+                <option value="">כל הסוגים</option>
+              </select>
+
+              <label class="sr-only" for="lib-status">סינון לפי מצב</label>
+              <select class="select" id="lib-status">
+                <option value="">כל המצבים</option>
+                <option value="visible">מוצגים</option>
+                <option value="hidden">מוסתרים</option>
+                <option value="new">חדשים</option>
+                <option value="missing">חסרים</option>
+              </select>
+            </div>
+
+            <div class="table-wrap" id="table-wrap"></div>
+          </div>
+        </section>
+
+        <!-- ---------------------- SETTINGS --------------------- -->
+        <section class="view" id="view-settings" hidden>
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">זהות האפליקציה</span></div>
+            <div class="panel__body">
+              <div class="form-grid form-grid--full">
+                <label class="field field--full">
+                  <span class="field__label">כותרת האפליקציה</span>
+                  <input class="input" id="set-title" type="text" maxlength="80" />
+                  <span class="field__hint">מוצגת בראש הדף ובכותרת החלון.</span>
+                </label>
+
+                <label class="field field--full">
+                  <span class="field__label">כותרת משנה</span>
+                  <input class="input" id="set-subtitle" type="text" maxlength="140" />
+                </label>
+
+                <label class="field">
+                  <span class="field__label">צבע ראשי</span>
+                  <input class="input" id="set-accent" type="color" style="height: 42px; padding: 4px" />
+                </label>
+
+                <label class="field">
+                  <span class="field__label">ימים לתגית "חדש"</span>
+                  <input class="input ltr" id="set-new-days" type="number" min="0" max="365" step="1" />
+                  <span class="field__hint">0 = התגית לעולם לא תוסר אוטומטית.</span>
+                </label>
+
+                <div class="field">
+                  <label class="switch">
+                    <input type="checkbox" id="set-show-categories" />
+                    <span class="switch__track"></span>
+                    <span class="switch__label">הצגת מסנני קטגוריות</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">פרטי איש קשר</span></div>
+            <div class="panel__body">
+              <div class="form-grid form-grid--full">
+                <div class="field field--full">
+                  <label class="switch">
+                    <input type="checkbox" id="set-contact-visible" />
+                    <span class="switch__track"></span>
+                    <span class="switch__label">הצגת פרטי הקשר בממשק הציבורי</span>
+                  </label>
+                </div>
+
+                <label class="field">
+                  <span class="field__label">שם איש הקשר</span>
+                  <input class="input" id="set-contact-name" type="text" maxlength="80" />
+                </label>
+
+                <label class="field">
+                  <span class="field__label">טלפון</span>
+                  <input class="input ltr" id="set-contact-phone" type="tel" maxlength="40" />
+                  <span class="field__hint">אופציונלי.</span>
+                </label>
+
+                <label class="field">
+                  <span class="field__label">דוא״ל</span>
+                  <input class="input ltr" id="set-contact-email" type="email" maxlength="120" />
+                  <span class="field__hint">אופציונלי.</span>
+                </label>
+
+                <label class="field">
+                  <span class="field__label">הערה</span>
+                  <input class="input" id="set-contact-note" type="text" maxlength="120" />
+                  <span class="field__hint">לדוגמה: שעות מענה.</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">מקור התוכנות</span></div>
+            <div class="panel__body">
+              <label class="field">
+                <span class="field__label">תיקיית התוכנות</span>
+                <input class="input ltr" id="set-software-root" type="text" maxlength="120" />
+                <span class="field__hint">
+                  נתיב יחסי לתיקייה שבה נמצא index.html. חייב להישאר יחסי — כך הספרייה
+                  ממשיכה לעבוד בכל אות כונן.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">אבטחה וגיבוי</span></div>
+            <div class="panel__body" style="display: flex; gap: 12px; flex-wrap: wrap">
+              <button class="btn" type="button" id="password-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                שינוי סיסמה
+              </button>
+
+              <button class="btn" type="button" id="export-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M12 15V3" />
+                </svg>
+                ייצוא גיבוי
+              </button>
+
+              <button class="btn" type="button" id="import-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8l-5-5-5 5" />
+                  <path d="M12 3v12" />
+                </svg>
+                שחזור מגיבוי
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px">
+            <button class="btn btn--primary btn--lg" type="button" id="settings-apply">
+              החלת ההגדרות
+            </button>
+          </div>
+        </section>
+
+        <!-- ------------------------ HELP ----------------------- -->
+        <section class="view" id="view-help" hidden>
+          <div class="panel">
+            <div class="panel__head"><span class="panel__title">איך זה עובד</span></div>
+            <div class="panel__body" style="display: grid; gap: 16px">
+              <p class="view__intro">
+                כל המידע נשמר בקובץ <code>database.json</code>, בתוך תיקיית
+                <code>data</code> שנוצרת אוטומטית ליד קובץ ההפעלה (.exe) בהרצה
+                הראשונה. ממשק הניהול כותב אליו ישירות — אין צורך לערוך אותו ידנית.
+              </p>
+
+              <div class="notice notice--info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+                <div>
+                  <strong>סדר עבודה מומלץ:</strong> חבר את תיקיית הפרויקט פעם אחת (בכרום או
+                  אדג׳) ← העתק תוכנות לתיקיית <code>software</code> ← לחץ "סריקת תיקייה" ←
+                  ערוך את הפריטים החדשים ← לחץ "שמירה".
+                </div>
+              </div>
+
+              <div class="notice notice--warn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4" /><path d="M12 17h.01" />
+                </svg>
+                <div>
+                  סריקה לעולם לא מוחקת מידע. פריט שקובץ שלו נעלם מסומן כ"חסר" ומידע העריכה
+                  שלו נשמר, כדי שהחזרת הקובץ למקום תשחזר הכול. מחיקה היא תמיד פעולה יזומה.
+                </div>
+              </div>
+
+              <div class="notice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+                <div>
+                  <strong>Firefox:</strong> אינו תומך בכתיבה ישירה לקבצים. הסריקה עובדת, אך
+                  השמירה מורידה את שני הקבצים ויש להעתיק אותם לתיקיית <code>data</code>.
+                  לתחזוקה שוטפת עדיף Chrome או Edge.
+                </div>
+              </div>
+
+              <div class="notice notice--danger">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4" /><path d="M12 17h.01" />
+                </svg>
+                <div>
+                  <strong>על הסיסמה:</strong> היא מונעת כניסה מקרית לממשק הניהול בלבד. כל מי
+                  שמחזיק פיזית בכונן יכול לפתוח את הקבצים שבו. אין להשתמש כאן בסיסמה
+                  שמשמשת למערכת אחרת.
+                </div>
+              </div>
+
+              <p class="field__hint">
+                גרסת המערכת: <span class="ltr" id="app-version"></span>
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!--
+      SCRIPT ORDER MATTERS — see the note in index.html and js/core/namespace.js.
+      These are classic scripts because ES modules are blocked by CORS on file://.
+      window.USBLibDatabase is injected before this file loads by the desktop
+      app's initialization_script (src-tauri) — no <script src> for it here.
+    -->
+
+    <script src="js/core/namespace.js"></script>
+    <script src="js/core/logger.js"></script>
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/paths.js"></script>
+    <script src="js/core/filetypes.js"></script>
+    <script src="js/core/sha256.js"></script>
+    <script src="js/core/crypto.js"></script>
+    <script src="js/core/schema.js"></script>
+    <script src="js/core/db.js"></script>
+    <script src="js/core/storage.js"></script>
+    <script src="js/core/fs.js"></script>
+
+    <script src="js/ui/dom.js"></script>
+    <script src="js/ui/icons.js"></script>
+    <script src="js/ui/toast.js"></script>
+    <script src="js/ui/modal.js"></script>
+    <script src="js/ui/theme.js"></script>
+
+    <script src="js/admin/auth.js"></script>
+    <script src="js/admin/scanner.js"></script>
+    <script src="js/admin/persist.js"></script>
+    <script src="js/admin/editor.js"></script>
+    <script src="js/admin/main.js"></script>
+  </body>
+</html>

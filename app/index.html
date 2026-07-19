@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="ספריית תוכנות להורדה — פועלת ישירות מהכונן, ללא התקנה וללא חיבור לאינטרנט." />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- The title is replaced at runtime from settings.appTitle. -->
+    <title>ספריית התוכנות</title>
+
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+
+  <body>
+    <a class="skip-link" href="#catalog">דילוג לתוכן הראשי</a>
+
+    <header class="app-header">
+      <div class="app-header__inner">
+        <div class="brand">
+          <div class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Z" />
+              <path d="M4 19.5A2 2 0 0 1 6 18h13" />
+              <path d="M9 7h6" />
+              <path d="M9 11h6" />
+            </svg>
+          </div>
+          <div class="brand__text">
+            <div class="brand__title" id="brand-title">ספריית התוכנות</div>
+            <div class="brand__sub" id="brand-sub"></div>
+          </div>
+        </div>
+
+        <div class="app-header__actions" id="header-actions"></div>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="hero__inner">
+        <h1 class="hero__title" id="hero-title">ספריית התוכנות</h1>
+        <p class="hero__subtitle" id="hero-subtitle"></p>
+
+        <div class="hero__contact" id="hero-contact" hidden></div>
+
+        <div class="search" id="search" role="search">
+          <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+
+          <label class="sr-only" for="search-input">חיפוש תוכנה</label>
+          <input
+            class="search__input"
+            id="search-input"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="חיפוש לפי שם, תיאור, קטגוריה או גרסה…"
+            aria-describedby="search-help"
+          />
+          <span class="sr-only" id="search-help">
+            התוצאות מתעדכנות מיד עם ההקלדה. ניתן ללחוץ על מקש לוכסן כדי לעבור לשדה החיפוש.
+          </span>
+
+          <button class="search__clear" id="search-clear" type="button" aria-label="ניקוי החיפוש">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="breadcrumbs" id="breadcrumbs" aria-label="מיקום נוכחי"></nav>
+
+    <div class="toolbar">
+      <div class="filters" id="filters" hidden></div>
+      <div class="toolbar__meta">
+        <span id="item-count"></span>
+      </div>
+    </div>
+
+    <main class="catalog" id="catalog" tabindex="-1">
+      <div class="empty" id="loading">
+        <svg class="empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" style="animation: spin 0.9s linear infinite"
+             aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-6.2-8.6" />
+        </svg>
+        <p class="empty__text">טוען את הספרייה…</p>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer__inner">
+        <span id="last-update"></span>
+        <span>פועל ישירות מהכונן — ללא התקנה וללא אינטרנט</span>
+      </div>
+    </footer>
+
+    <!--
+      SCRIPT ORDER MATTERS.
+      These are classic scripts, not ES modules: a module <script> is fetched
+      with CORS, and a page opened from file:// has an opaque origin, so the
+      browser blocks it. Classic scripts have no such restriction. Each file
+      registers itself on the USBLib namespace and depends only on files
+      loaded above it. See js/core/namespace.js for the full rationale.
+
+      window.USBLibDatabase is defined before this file even loads: the
+      desktop app (src-tauri) injects it via an initialization_script that
+      reads the external data/database.json beside the .exe. Nothing here
+      needs to fetch or <script src> it.
+    -->
+
+    <script src="js/core/namespace.js"></script>
+    <script src="js/core/logger.js"></script>
+    <script src="js/core/utils.js"></script>
+    <script src="js/core/paths.js"></script>
+    <script src="js/core/filetypes.js"></script>
+    <script src="js/core/schema.js"></script>
+    <script src="js/core/db.js"></script>
+    <script src="js/core/storage.js"></script>
+
+    <script src="js/ui/dom.js"></script>
+    <script src="js/ui/icons.js"></script>
+    <script src="js/ui/toast.js"></script>
+    <script src="js/ui/modal.js"></script>
+    <script src="js/ui/theme.js"></script>
+
+    <script src="js/app/search.js"></script>
+    <script src="js/app/download.js"></script>
+    <script src="js/app/cards.js"></script>
+    <script src="js/app/details.js"></script>
+    <script src="js/app/main.js"></script>
+  </body>
+</html>

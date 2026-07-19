@@ -1,0 +1,17 @@
+# Rust/Tauri build output
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# OS / editor noise
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+*~
+*.swp
+.vscode/
+.idea/

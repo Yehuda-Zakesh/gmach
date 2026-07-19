@@ -1,0 +1,36 @@
+name: Build Windows exe
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build (portable single exe)
+        working-directory: src-tauri
+        run: cargo tauri build
+
+      - name: Locate exe
+        id: find
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" | Select-Object -First 1
+          echo "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          echo "name=$($exe.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.find.outputs.name }}
+          path: ${{ steps.find.outputs.path }}
