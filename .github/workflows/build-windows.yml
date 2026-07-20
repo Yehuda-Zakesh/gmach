@@ -34,8 +34,7 @@ jobs:
           git config user.name "github-actions"
           git checkout --orphan build-log
           git rm -rf . 2>$null
-          Copy-Item "$env:GITHUB_WORKSPACE\build-log.txt" "build-log.txt" -Force
-          git add build-log.txt
+          git add -f build-log.txt
           git commit -m "Build log (auto, run $env:GITHUB_RUN_ID)"
           git push -f origin build-log
 

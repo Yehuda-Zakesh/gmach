@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "גמ\"ח תוכנה",
+  "productName": "גמ״ח תוכנה",
   "version": "1.0.0",
   "identifier": "com.yehudazakesh.gmach",
   "build": {
