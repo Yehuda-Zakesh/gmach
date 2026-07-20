@@ -108,7 +108,7 @@ async fn download_item(app: AppHandle, rel_path: String, suggested_name: String)
         .file()
         .set_file_name(&suggested_name)
         .save_file(move |path| {
-            let _ = tx.send(path.map(|p| p.into()));
+            let _ = tx.send(path.and_then(|p| p.into_path().ok()));
         });
 
     let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
@@ -129,7 +129,7 @@ async fn download_package(
 ) -> Result<usize, String> {
     let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
     app.dialog().file().pick_folder(move |folder| {
-        let _ = tx.send(folder.map(|p| p.into()));
+        let _ = tx.send(folder.and_then(|p| p.into_path().ok()));
     });
 
     let chosen_folder: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
