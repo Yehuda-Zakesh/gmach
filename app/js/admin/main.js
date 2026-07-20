@@ -249,6 +249,46 @@
       });
   }
 
+  /**
+   * Desktop-app only: opens a native "choose files" dialog, copies whatever
+   * is picked into data/software/ (via the Rust import_software_files
+   * command), then reconciles the result exactly like a folder scan would —
+   * so admins no longer need to drop files into the folder by hand first.
+   */
+  function runImport() {
+    if (!window.__TAURI__) return;
+
+    return window.__TAURI__.core
+      .invoke('import_software_files', {})
+      .then(function (copied) {
+        if (!copied.length) return; // dialog cancelled, or nothing selected
+
+        var entries = copied.map(function (f) {
+          return {
+            path: f.path,
+            name: f.name,
+            kind: 'file',
+            size: f.size,
+            lastModified: f.lastModified,
+          };
+        });
+
+        var outcome = Scanner.reconcile(state.db, entries, {
+          softwareRoot: state.db.settings.softwareRoot,
+        });
+
+        showScanResults(outcome);
+        markDirty();
+        renderAll();
+        Toast.success('נוספו ' + copied.length + ' קבצים לתיקיית התוכנה.');
+        return outcome;
+      })
+      .catch(function (err) {
+        Logger.error('admin: import failed', err);
+        Toast.error('ההוספה נכשלה: ' + (err && err.message ? err.message : err));
+      });
+  }
+
   function showScanResults(outcome) {
     var c = outcome.counts;
 
@@ -921,6 +961,7 @@
     el.libStats = Dom.must('#lib-stats');
     el.tableWrap = Dom.must('#table-wrap');
     el.purgeBtn = Dom.must('#purge-btn');
+    el.importBtn = Dom.must('#import-btn');
     el.appVersion = Dom.must('#app-version');
 
     el.settings = {
@@ -950,6 +991,8 @@
     el.purgeBtn.addEventListener('click', purgeMissing);
 
     Dom.must('#scan-btn').addEventListener('click', runScan);
+    Dom.setHidden(el.importBtn, !window.__TAURI__);
+    el.importBtn.addEventListener('click', runImport);
     Dom.must('#settings-apply').addEventListener('click', applySettings);
     Dom.must('#password-btn').addEventListener('click', openPasswordDialog);
     Dom.must('#export-btn').addEventListener('click', function () {

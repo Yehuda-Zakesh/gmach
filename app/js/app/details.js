@@ -186,7 +186,7 @@
             'button.btn',
             {
               type: 'button',
-              title: 'פתיחה בכרטיסייה חדשה',
+              title: window.__TAURI__ ? 'הרצת התוכנה' : 'פתיחה בכרטיסייה חדשה',
               on: {
                 click: function () {
                   Download.open(item);

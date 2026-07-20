@@ -62,7 +62,9 @@ cargo tauri build
 | שמירה מהניהול | כתיבה ישירה (FSA) או הורדה + גרירה ידנית | פקודת `write_database` כותבת ישירות ל-`data/database.json` |
 | העלאת אייקון | כתיבה ישירה (FSA) או הטמעה כ-`data:` URL | פקודת `write_image` כותבת ישירות ל-`data/images/` |
 | הצגת אייקון בקטלוג | `<img src="images/...">` יחסי | `convertFileSrc` מול הנתיב המלא של `data/` |
-| הורדת קובץ | `<a download>` | דיאלוג "שמירה בשם" native, מעתיק מ-`data/software/` |
+| הורדת קובץ | `<a download>` | מועתק ישירות לתיקיית ההורדות של המשתמש (`download_item`/`download_package`), עם הודעת הצלחה |
+| פתיחת/הרצת קובץ | `window.open` בכרטיסייה חדשה | `open_item` מריץ את הקובץ עם התוכנה המשויכת אליו במערכת ההפעלה |
+| הוספת תוכנה חדשה | גרירה ידנית לתיקייה + סריקה | כפתור "הוספת קבצים מהמחשב" (`import_software_files`) מעתיק ומזין ישירות לתהליך ההתאמה |
 | סריקת תיקיית software | `<input webkitdirectory>` | **ללא שינוי** — זה כבר דיאלוג מערכת הפעלה אמיתי, לא תלוי בפרוטוקול הדף |
 
 ## נקודות שכדאי לבדוק בבנייה הראשונה
@@ -73,8 +75,10 @@ toolchain כלל), אז יש כמה מקומות ספציפיים ב-API של Ta
 
 - `app.asset_protocol_scope().allow_directory(...)` — שם המתודה/חתימה
   המדויקים ב-Tauri v2 (ב-`main.rs`).
-- `app.dialog().file().save_file(...)` / `.pick_folder(...)` — ה-API של
-  `tauri-plugin-dialog` v2 (callback vs. `async`/`await`).
+- `app.dialog().file().pick_files(...)` (עבור הוספת תוכנה) — ה-API של
+  `tauri-plugin-dialog` v2 (callback vs. `async`/`await`), כולל `FilePath`
+  שדורש `.into_path()` כדי להפוך ל-`PathBuf`.
+- `dirs::download_dir()` — תלות חדשה לאיתור תיקיית ההורדות של המשתמש.
 - `event.id().as_ref()` בהשוואת מזהה פריט התפריט.
 - `WebviewUrl::App("index.html".into())` מול `admin.html` — ודא ששני הקבצים
   אכן נארזים מתוך `frontendDist` (`../app`).

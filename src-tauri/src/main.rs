@@ -96,46 +96,62 @@ fn write_image(rel_path: String, base64_data: String) -> Result<String, String> 
     Ok(rel_path)
 }
 
+/// Resolves the current user's Downloads folder, creating it if it somehow
+/// doesn't exist yet.
+fn downloads_dir() -> Result<PathBuf, String> {
+    let dir = dirs::download_dir().ok_or_else(|| "לא נמצאה תיקיית ההורדות של המשתמש.".to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Picks a name that doesn't collide with anything already in `dir`,
+/// appending " (1)", " (2)", … before the extension — the same convention
+/// browsers use for repeat downloads.
+fn unique_destination(dir: &Path, file_name: &str) -> PathBuf {
+    let candidate = dir.join(file_name);
+    if !candidate.exists() {
+        return candidate;
+    }
+
+    let path = Path::new(file_name);
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(file_name);
+    let ext = path.extension().and_then(|s| s.to_str());
+
+    for n in 1..1000 {
+        let name = match ext {
+            Some(e) => format!("{stem} ({n}).{e}"),
+            None => format!("{stem} ({n})"),
+        };
+        let candidate = dir.join(name);
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    dir.join(file_name) // give up after 999 collisions; overwrite
+}
+
 #[tauri::command]
-async fn download_item(app: AppHandle, rel_path: String, suggested_name: String) -> Result<bool, String> {
+fn download_item(rel_path: String, suggested_name: String) -> Result<String, String> {
     let source = resolve_in_data_root(&rel_path)?;
     if !source.exists() {
         return Err("הקובץ אינו קיים.".into());
     }
 
-    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
-    app.dialog()
-        .file()
-        .set_file_name(&suggested_name)
-        .save_file(move |path| {
-            let _ = tx.send(path.and_then(|p| p.into_path().ok()));
-        });
+    let dir = downloads_dir()?;
+    let dest = unique_destination(&dir, &suggested_name);
+    fs::copy(&source, &dest).map_err(|e| e.to_string())?;
 
-    let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
-    match chosen {
-        Some(dest) => {
-            fs::copy(&source, &dest).map_err(|e| e.to_string())?;
-            Ok(true)
-        }
-        None => Ok(false), // user cancelled the dialog
-    }
+    Ok(dest
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&suggested_name)
+        .to_string())
 }
 
 #[tauri::command]
-async fn download_package(
-    app: AppHandle,
-    rel_paths: Vec<String>,
-    suggested_names: Vec<String>,
-) -> Result<usize, String> {
-    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
-    app.dialog().file().pick_folder(move |folder| {
-        let _ = tx.send(folder.and_then(|p| p.into_path().ok()));
-    });
-
-    let chosen_folder: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
-    let Some(folder) = chosen_folder else {
-        return Ok(0); // user cancelled
-    };
+fn download_package(rel_paths: Vec<String>, suggested_names: Vec<String>) -> Result<usize, String> {
+    let dir = downloads_dir()?;
 
     let mut copied = 0usize;
     for (rel_path, name) in rel_paths.iter().zip(suggested_names.iter()) {
@@ -146,12 +162,94 @@ async fn download_package(
         if !source.exists() {
             continue;
         }
-        if fs::copy(&source, folder.join(name)).is_ok() {
+        let dest = unique_destination(&dir, name);
+        if fs::copy(&source, dest).is_ok() {
             copied += 1;
         }
     }
 
     Ok(copied)
+}
+
+/// Launches a file already inside data/ with its default OS application —
+/// the "run this program, it's already on this computer" action.
+#[tauri::command]
+fn open_item(rel_path: String) -> Result<(), String> {
+    let path = resolve_in_data_root(&rel_path)?;
+    if !path.exists() {
+        return Err("הקובץ אינו קיים.".into());
+    }
+
+    let path_str = path.to_str().ok_or("נתיב לא תקין.")?;
+
+    // `cmd /C start "" <path>` hands off to whatever the OS associates with
+    // this file type (runs an .exe directly, opens a .pdf in its viewer,
+    // etc.) — the empty "" is the window-title placeholder `start` requires
+    // once a quoted path is involved.
+    std::process::Command::new("cmd")
+        .args(["/C", "start", "", path_str])
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Opens a native "choose files" dialog and copies whatever is picked
+/// straight into data/software/ — this replaces manually dragging files
+/// into the folder before scanning. Returns enough metadata about each
+/// copied file for the JS side to reconcile it into the catalog exactly
+/// like a folder scan would.
+#[tauri::command]
+async fn import_software_files(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let (tx, rx) = std::sync::mpsc::channel::<Option<Vec<PathBuf>>>();
+    app.dialog().file().pick_files(move |paths| {
+        let converted = paths.map(|list| {
+            list.into_iter()
+                .filter_map(|p| p.into_path().ok())
+                .collect()
+        });
+        let _ = tx.send(converted);
+    });
+
+    let chosen: Option<Vec<PathBuf>> = rx.recv().map_err(|e| e.to_string())?;
+    let Some(files) = chosen else {
+        return Ok(vec![]); // dialog cancelled
+    };
+
+    let dest_dir = data_root().join("software");
+    fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+
+    let mut added = Vec::new();
+    for src in files {
+        let Some(os_name) = src.file_name() else { continue };
+        let name = os_name.to_string_lossy().to_string();
+        let dest = unique_destination(&dest_dir, &name);
+
+        if fs::copy(&src, &dest).is_err() {
+            continue;
+        }
+
+        let size = fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
+        let last_modified = fs::metadata(&dest)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let rel_path = format!(
+            "software/{}",
+            dest.file_name().and_then(|n| n.to_str()).unwrap_or(&name)
+        );
+
+        added.push(serde_json::json!({
+            "path": rel_path,
+            "name": dest.file_name().and_then(|n| n.to_str()).unwrap_or(&name),
+            "size": size,
+            "lastModified": last_modified,
+        }));
+    }
+
+    Ok(added)
 }
 
 /// Builds a `file://`-style JS string assignment injected before any page
@@ -188,7 +286,9 @@ fn main() {
             write_database,
             write_image,
             download_item,
-            download_package
+            download_package,
+            open_item,
+            import_software_files
         ])
         .setup(|app| {
             let root = ensure_data_root()?;

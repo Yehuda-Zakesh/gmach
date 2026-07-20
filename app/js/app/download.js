@@ -34,6 +34,9 @@
     if (window.__TAURI__) {
       window.__TAURI__.core
         .invoke('download_item', { relPath: relPath, suggestedName: name })
+        .then(function (savedName) {
+          Toast.success('הקובץ "' + savedName + '" ירד בהצלחה ונמצא בתיקיית ההורדות.');
+        })
         .catch(function (err) {
           Toast.error('ההורדה נכשלה: ' + (err && err.message ? err.message : err));
         });
@@ -117,7 +120,7 @@
             }),
           })
           .then(function (count) {
-            if (count) Toast.success('הורדו ' + count + ' קבצים.');
+            if (count) Toast.success('הורדו ' + count + ' קבצים לתיקיית ההורדות.');
             return count;
           })
           .catch(function (err) {
@@ -177,12 +180,23 @@
     },
 
     /**
-     * Opens a file in a new tab instead of downloading it — the escape hatch
-     * for PDFs and for browsers that refuse the `download` attribute.
+     * Opens a file with its default application. In a plain browser this
+     * means a new tab (the escape hatch for PDFs, or browsers that refuse
+     * the `download` attribute). In the desktop app it launches the real
+     * program directly via the OS — this is the "run it, it's already on
+     * this computer" action.
      * @param {Object} item
      */
     open: function (item) {
       if (!item || !item.path || !Paths.isSafe(item.path)) return;
+
+      if (window.__TAURI__) {
+        window.__TAURI__.core.invoke('open_item', { relPath: item.path }).catch(function (err) {
+          Toast.error('לא ניתן לפתוח את הקובץ: ' + (err && err.message ? err.message : err));
+        });
+        return;
+      }
+
       window.open(Paths.toHref(item.path), '_blank', 'noopener');
     },
 
