@@ -96,14 +96,6 @@ fn write_image(rel_path: String, base64_data: String) -> Result<String, String> 
     Ok(rel_path)
 }
 
-/// Resolves the current user's Downloads folder, creating it if it somehow
-/// doesn't exist yet.
-fn downloads_dir() -> Result<PathBuf, String> {
-    let dir = dirs::download_dir().ok_or_else(|| "לא נמצאה תיקיית ההורדות של המשתמש.".to_string())?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir)
-}
-
 /// Picks a name that doesn't collide with anything already in `dir`,
 /// appending " (1)", " (2)", … before the extension — the same convention
 /// browsers use for repeat downloads.
@@ -131,27 +123,59 @@ fn unique_destination(dir: &Path, file_name: &str) -> PathBuf {
     dir.join(file_name) // give up after 999 collisions; overwrite
 }
 
+/// Opens a native "save as" dialog (triggered from inside the app, never
+/// automatically) and, only if the user confirms a destination, copies the
+/// file there. Returns `None` when the dialog is cancelled — that's not an
+/// error, just nothing to report.
 #[tauri::command]
-fn download_item(rel_path: String, suggested_name: String) -> Result<String, String> {
+async fn download_item(
+    app: AppHandle,
+    rel_path: String,
+    suggested_name: String,
+) -> Result<Option<String>, String> {
     let source = resolve_in_data_root(&rel_path)?;
     if !source.exists() {
         return Err("הקובץ אינו קיים.".into());
     }
 
-    let dir = downloads_dir()?;
-    let dest = unique_destination(&dir, &suggested_name);
+    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
+    app.dialog()
+        .file()
+        .set_file_name(&suggested_name)
+        .save_file(move |picked| {
+            let _ = tx.send(picked.and_then(|p| p.into_path().ok()));
+        });
+
+    let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
+    let Some(dest) = chosen else {
+        return Ok(None); // dialog cancelled — nothing copied
+    };
+
     fs::copy(&source, &dest).map_err(|e| e.to_string())?;
 
-    Ok(dest
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(&suggested_name)
-        .to_string())
+    Ok(dest.file_name().and_then(|n| n.to_str()).map(|s| s.to_string()))
 }
 
+/// Opens a native "choose a folder" dialog (triggered from inside the app)
+/// and, only if the user confirms a destination, copies every file of the
+/// package there. Returns 0 both when the dialog is cancelled and when
+/// nothing could be copied — same as before, the caller only cares whether
+/// anything landed.
 #[tauri::command]
-fn download_package(rel_paths: Vec<String>, suggested_names: Vec<String>) -> Result<usize, String> {
-    let dir = downloads_dir()?;
+async fn download_package(
+    app: AppHandle,
+    rel_paths: Vec<String>,
+    suggested_names: Vec<String>,
+) -> Result<usize, String> {
+    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
+    app.dialog().file().pick_folder(move |picked| {
+        let _ = tx.send(picked.and_then(|p| p.into_path().ok()));
+    });
+
+    let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
+    let Some(dir) = chosen else {
+        return Ok(0); // dialog cancelled
+    };
 
     let mut copied = 0usize;
     for (rel_path, name) in rel_paths.iter().zip(suggested_names.iter()) {

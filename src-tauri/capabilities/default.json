@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Baseline permissions for the main catalog window and the admin window",
   "windows": ["main", "admin"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default"]
 }
