@@ -18,6 +18,37 @@ const SEED_IMAGES_README: &str = include_str!("../../seed/images-README.md");
 const DATA_DIR_NAME: &str = "data";
 const DATABASE_FILE_NAME: &str = "database.json";
 
+/// Folders that are never part of the software library — kept in sync with
+/// the IGNORED_DIRS list in app/js/core/fs.js.
+const IGNORED_DIR_NAMES: &[&str] = &[
+    "system volume information",
+    "$recycle.bin",
+    ".git",
+    ".svn",
+    "node_modules",
+    "__macosx",
+];
+
+/// Files that are noise rather than library content — kept in sync with the
+/// IGNORED_FILES list in app/js/core/fs.js. Anything starting with "." is
+/// also skipped (checked separately, see `is_ignored_file`).
+const IGNORED_FILE_NAMES: &[&str] = &[
+    "thumbs.db",
+    "desktop.ini",
+    ".ds_store",
+    "autorun.inf",
+    "readme.md",
+];
+
+fn is_ignored_dir(name: &str) -> bool {
+    IGNORED_DIR_NAMES.contains(&name.to_lowercase().as_str())
+}
+
+fn is_ignored_file(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    IGNORED_FILE_NAMES.contains(&lower.as_str()) || lower.starts_with('.')
+}
+
 /// The single folder that sits beside the .exe and holds everything mutable:
 /// database.json, software/ (the actual installers) and images/ (uploaded
 /// icons). Created automatically on first run — see `ensure_data_root`.
@@ -218,6 +249,82 @@ fn open_item(rel_path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Recursively walks `dir` (folders before their contents) and appends every
+/// non-ignored entry to `out`, using slash-separated paths relative to
+/// `root` — the exact shape reconcile() expects from a browser-side scan.
+fn walk_software_dir(
+    root: &Path,
+    dir: &Path,
+    out: &mut Vec<serde_json::Value>,
+) -> std::io::Result<()> {
+    let mut entries: Vec<_> = fs::read_dir(dir)?.filter_map(|e| e.ok()).collect();
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in entries {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            if is_ignored_dir(&name) {
+                continue;
+            }
+            out.push(serde_json::json!({
+                "path": rel,
+                "name": name,
+                "kind": "folder",
+                "size": 0,
+                "lastModified": 0,
+            }));
+            walk_software_dir(root, &path, out)?;
+            continue;
+        }
+
+        if is_ignored_file(&name) {
+            continue;
+        }
+
+        let metadata = entry.metadata()?;
+        let last_modified = metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        out.push(serde_json::json!({
+            "path": rel,
+            "name": name,
+            "kind": "file",
+            "size": metadata.len(),
+            "lastModified": last_modified,
+        }));
+    }
+
+    Ok(())
+}
+
+/// Lists everything under data/software — the desktop-app replacement for
+/// the browser's manual folder-picker scan. The location is already known
+/// (it's the one folder this app itself manages), so this needs no dialog
+/// at all and is safe to run automatically every time the admin console
+/// opens.
+#[tauri::command]
+fn list_software_directory() -> Result<Vec<serde_json::Value>, String> {
+    let root = ensure_data_root().map_err(|e| e.to_string())?;
+    let software_dir = root.join("software");
+    fs::create_dir_all(&software_dir).map_err(|e| e.to_string())?;
+
+    let mut out = Vec::new();
+    walk_software_dir(&root, &software_dir, &mut out).map_err(|e| e.to_string())?;
+    Ok(out)
+}
+
 /// Opens a native "choose files" dialog and copies whatever is picked
 /// straight into data/software/ — this replaces manually dragging files
 /// into the folder before scanning. Returns enough metadata about each
@@ -312,7 +419,8 @@ fn main() {
             download_item,
             download_package,
             open_item,
-            import_software_files
+            import_software_files,
+            list_software_directory
         ])
         .setup(|app| {
             let root = ensure_data_root()?;

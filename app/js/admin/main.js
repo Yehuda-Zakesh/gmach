@@ -179,6 +179,49 @@
 
   /* --- Scanning ---------------------------------------------------------- */
 
+  /**
+   * Desktop-app only: scans data/software directly via the Rust
+   * list_software_directory command and reconciles the result — the
+   * location is already known (it's the folder the app itself manages), so
+   * this needs no dialog and runs quietly every time the console opens.
+   * Only surfaces a toast when the scan actually changed something.
+   */
+  function runAutoScan() {
+    if (!window.__TAURI__) return Promise.resolve();
+
+    return window.__TAURI__.core
+      .invoke('list_software_directory', {})
+      .then(function (entries) {
+        var outcome = Scanner.reconcile(state.db, entries, {
+          softwareRoot: state.db.settings.softwareRoot,
+        });
+
+        var c = outcome.counts;
+        if (c.added || c.updated || c.moved || c.missing || c.restored) {
+          markDirty();
+
+          var parts = [
+            c.added ? c.added + ' נוספו' : '',
+            c.updated ? c.updated + ' עודכנו' : '',
+            c.moved ? c.moved + ' הועברו' : '',
+            c.missing ? c.missing + ' חסרים' : '',
+            c.restored ? c.restored + ' חזרו' : '',
+          ].filter(Boolean);
+
+          Toast.info(
+            'סריקה אוטומטית עדכנה את הספרייה: ' + parts.join(', ') + '. אל תשכח לשמור.',
+            6000
+          );
+        }
+
+        return outcome;
+      })
+      .catch(function (err) {
+        Logger.error('admin: auto-scan failed', err);
+        Toast.error('הסריקה האוטומטית נכשלה: ' + (err && err.message ? err.message : err));
+      });
+  }
+
   function runScan() {
     var log = Dom.h('div.scan-log', { text: 'מתחיל סריקה…\n' });
     var progress = Dom.h('div.progress.progress--indeterminate', {}, [
@@ -940,8 +983,10 @@
   function enterConsole() {
     Dom.setHidden(el.gate, true);
     Dom.setHidden(el.console, false);
-    renderAll();
-    switchView('library');
+    runAutoScan().then(function () {
+      renderAll();
+      switchView('library');
+    });
   }
 
   /* --- Startup ----------------------------------------------------------- */
@@ -990,6 +1035,7 @@
     el.connectBtn.addEventListener('click', connectFolder);
     el.purgeBtn.addEventListener('click', purgeMissing);
 
+    Dom.setHidden(Dom.must('#scan-btn'), !!window.__TAURI__);
     Dom.must('#scan-btn').addEventListener('click', runScan);
     Dom.setHidden(el.importBtn, !window.__TAURI__);
     el.importBtn.addEventListener('click', runImport);

@@ -20,6 +20,7 @@
   var Cards = NS.require('app.Cards');
   var Details = NS.require('app.Details');
   var Download = NS.require('app.Download');
+  var Help = NS.require('app.Help');
 
   /** @type {Object} */
   var state = {
@@ -420,6 +421,7 @@
     });
 
     el.headerActions.appendChild(Theme.createToggle());
+    Help.init();
   }
 
   function showFatal(message, detail) {

@@ -667,6 +667,71 @@ button.crumb:hover {
   }
 }
 
+/* --- Floating help button -------------------------------------------------
+   A large, unmissable circular button for a visitor with zero computer
+   background. Deliberately not tucked into the header actions alongside the
+   theme toggle — it needs to read as "press this if you're stuck", not as
+   one more small icon among several. */
+.help-fab {
+  position: fixed;
+  bottom: var(--space-5);
+  inset-inline-end: var(--space-5);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-accent);
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+
+.help-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--shadow-accent);
+}
+
+.help-fab:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.help-fab__icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.help-fab__label {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  /* The label makes a wide pill that fights the search box for room on a
+     phone screen — collapse to an icon-only circle, the aria-label and
+     title still carry the full sentence for anyone using a screen reader. */
+  .help-fab {
+    padding: 14px;
+    border-radius: 50%;
+  }
+
+  .help-fab__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 640px) {
   :root {
     --header-h: 60px;
