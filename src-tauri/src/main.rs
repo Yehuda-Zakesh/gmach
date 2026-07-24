@@ -154,59 +154,40 @@ fn unique_destination(dir: &Path, file_name: &str) -> PathBuf {
     dir.join(file_name) // give up after 999 collisions; overwrite
 }
 
-/// Opens a native "save as" dialog (triggered from inside the app, never
-/// automatically) and, only if the user confirms a destination, copies the
-/// file there. Returns `None` when the dialog is cancelled — that's not an
-/// error, just nothing to report.
+/// Resolves the current user's Downloads folder, creating it if it somehow
+/// doesn't exist yet.
+fn downloads_dir() -> Result<PathBuf, String> {
+    let dir = dirs::download_dir().ok_or_else(|| "לא נמצאה תיקיית ההורדות של המשתמש.".to_string())?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Copies the file straight into the user's Downloads folder — no dialog,
+/// no destination choice. The whole point is that someone with zero
+/// computer background always finds it in the same predictable place.
 #[tauri::command]
-async fn download_item(
-    app: AppHandle,
-    rel_path: String,
-    suggested_name: String,
-) -> Result<Option<String>, String> {
+fn download_item(rel_path: String, suggested_name: String) -> Result<String, String> {
     let source = resolve_in_data_root(&rel_path)?;
     if !source.exists() {
         return Err("הקובץ אינו קיים.".into());
     }
 
-    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
-    app.dialog()
-        .file()
-        .set_file_name(&suggested_name)
-        .save_file(move |picked| {
-            let _ = tx.send(picked.and_then(|p| p.into_path().ok()));
-        });
-
-    let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
-    let Some(dest) = chosen else {
-        return Ok(None); // dialog cancelled — nothing copied
-    };
-
+    let dir = downloads_dir()?;
+    let dest = unique_destination(&dir, &suggested_name);
     fs::copy(&source, &dest).map_err(|e| e.to_string())?;
 
-    Ok(dest.file_name().and_then(|n| n.to_str()).map(|s| s.to_string()))
+    Ok(dest
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&suggested_name)
+        .to_string())
 }
 
-/// Opens a native "choose a folder" dialog (triggered from inside the app)
-/// and, only if the user confirms a destination, copies every file of the
-/// package there. Returns 0 both when the dialog is cancelled and when
-/// nothing could be copied — same as before, the caller only cares whether
-/// anything landed.
+/// Copies every file of the package straight into the user's Downloads
+/// folder — no dialog, same reasoning as download_item above.
 #[tauri::command]
-async fn download_package(
-    app: AppHandle,
-    rel_paths: Vec<String>,
-    suggested_names: Vec<String>,
-) -> Result<usize, String> {
-    let (tx, rx) = std::sync::mpsc::channel::<Option<PathBuf>>();
-    app.dialog().file().pick_folder(move |picked| {
-        let _ = tx.send(picked.and_then(|p| p.into_path().ok()));
-    });
-
-    let chosen: Option<PathBuf> = rx.recv().map_err(|e| e.to_string())?;
-    let Some(dir) = chosen else {
-        return Ok(0); // dialog cancelled
-    };
+fn download_package(rel_paths: Vec<String>, suggested_names: Vec<String>) -> Result<usize, String> {
+    let dir = downloads_dir()?;
 
     let mut copied = 0usize;
     for (rel_path, name) in rel_paths.iter().zip(suggested_names.iter()) {
@@ -434,6 +415,7 @@ fn main() {
                 .title("גמ\"ח תוכנה")
                 .inner_size(1200.0, 820.0)
                 .min_inner_size(820.0, 600.0)
+                .maximized(true)
                 .initialization_script(&boot_script(&database_json, &root))
                 .build()?;
 

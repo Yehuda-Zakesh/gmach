@@ -683,34 +683,69 @@ button.crumb:hover {
   padding: 14px 20px;
   border: none;
   border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--accent-contrast);
+  /* A warm, distinct gradient — deliberately not the site's blue accent, so
+     this reads as its own "press me if you're stuck" beacon rather than
+     blending in with ordinary UI chrome. */
+  background: linear-gradient(135deg, #ff9d43, #ff5f6d);
+  color: #ffffff;
   font: inherit;
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: var(--shadow-accent);
+  box-shadow: 0 10px 26px rgba(255, 95, 109, 0.38);
   transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
 }
 
 .help-fab:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg), var(--shadow-accent);
+  box-shadow: var(--shadow-lg), 0 10px 26px rgba(255, 95, 109, 0.38);
 }
 
 .help-fab:focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid #ff5f6d;
   outline-offset: 3px;
 }
 
 .help-fab__icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   flex: none;
 }
 
 .help-fab__label {
   white-space: nowrap;
+}
+
+/* --- Help-guide section badges --------------------------------------------
+   Each section of the beginner's guide gets a small colorful icon badge —
+   a different color per topic, both to fix icons that previously rendered
+   at the browser's default (oversized) SVG box, and to make the guide feel
+   friendlier and easier to scan at a glance. */
+.help-guide__badge {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  flex: none;
+}
+
+.help-guide__badge-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.help-guide__badge--blue {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+}
+
+.help-guide__badge--green {
+  background: linear-gradient(135deg, #34d399, #059669);
+}
+
+.help-guide__badge--orange {
+  background: linear-gradient(135deg, #fbbf24, #ea580c);
 }
 
 @media (max-width: 640px) {

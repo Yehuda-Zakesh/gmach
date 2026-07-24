@@ -18,19 +18,24 @@
     return Dom.h('li', { text: text, style: { 'margin-bottom': '8px', 'line-height': '1.7' } });
   }
 
-  function sectionTitle(iconName, text) {
+  function sectionTitle(iconName, colorClass, text) {
     return Dom.h(
       'h3',
       {
         style: {
           display: 'flex',
           'align-items': 'center',
-          gap: '8px',
+          gap: '10px',
           margin: '0 0 10px',
           'font-size': '1.05rem',
         },
       },
-      [Icons.get(iconName), Dom.h('span', { text: text })]
+      [
+        Dom.h('span.help-guide__badge.' + colorClass, {}, [
+          Icons.get(iconName, { size: 20, className: 'help-guide__badge-icon' }),
+        ]),
+        Dom.h('span', { text: text }),
+      ]
     );
   }
 
@@ -46,19 +51,19 @@
       ]),
 
       Dom.h('section', {}, [
-        sectionTitle('search', 'איך משתמשים בתוכנה הזו'),
+        sectionTitle('search', 'help-guide__badge--blue', 'איך משתמשים בתוכנה הזו'),
         Dom.h('ol', { style: { margin: '0', 'padding-inline-start': '20px' } }, [
           step('בראש הדף יש תיבת חיפוש. מקלידים שם של תוכנה שמחפשים, והתוצאות מופיעות מיד תוך כדי הקלדה.'),
           step('אפשר גם ללחוץ על אחת התיקיות או הקטגוריות כדי לדפדף בלי לחפש.'),
           step('לוחצים על כרטיס התוכנה שמעניינת אתכם כדי לראות פרטים נוספים עליה.'),
-          step('כפתור "הורדה" שומר את הקובץ אצלכם במחשב — תיבחרו לאן לשמור אותו (למשל שולחן העבודה, כדי שיהיה קל למצוא).'),
+          step('כפתור "הורדה" שומר את הקובץ אצלכם במחשב, בתיקיית ההורדות (Downloads) — זו תיקייה קבועה שתמיד קל למצוא בה קבצים שהורדתם.'),
         ]),
       ]),
 
       Dom.h('section', {}, [
-        sectionTitle('app-window', 'איך מתקינים תוכנה שהורדתם'),
+        sectionTitle('app-window', 'help-guide__badge--green', 'איך מתקינים תוכנה שהורדתם'),
         Dom.h('ol', { style: { margin: '0', 'padding-inline-start': '20px' } }, [
-          step('אחרי שההורדה הסתיימה, מאתרים את הקובץ שנשמר (למשל בשולחן העבודה, או בתיקייה שבחרתם) ולוחצים עליו לחיצה כפולה עם העכבר.'),
+          step('אחרי שההורדה הסתיימה, פותחים את תיקיית ההורדות (Downloads) ולוחצים לחיצה כפולה עם העכבר על הקובץ שהורדתם.'),
           step('לפעמים ייפתח חלון כחול של Windows שכתוב עליו "Windows protected your PC". זה תקין ולא מסוכן — לוחצים על "More info" ואז על הכפתור "Run anyway" כדי להמשיך.'),
           step('נפתח חלון התקנה. בדרך כלל אפשר פשוט ללחוץ "Next" (הבא) עד הסוף, ולבסוף על "Install" (התקן) או "Finish" (סיום).'),
           step('בסיום ההתקנה התוכנה תופיע בתפריט "התחל" (Start) של Windows, בדיוק כמו כל תוכנה אחרת במחשב.'),
@@ -66,7 +71,7 @@
       ]),
 
       Dom.h('section', {}, [
-        sectionTitle('archive', 'איך מחלצים קבצים מתיקייה דחוסה (ZIP)'),
+        sectionTitle('archive', 'help-guide__badge--orange', 'איך מחלצים קבצים מתיקייה דחוסה (ZIP)'),
         Dom.h('p', {
           style: { margin: '0 0 10px', 'line-height': '1.7' },
           text:

@@ -35,14 +35,10 @@
       window.__TAURI__.core
         .invoke('download_item', { relPath: relPath, suggestedName: name })
         .then(function (savedName) {
-          // null/undefined means the user cancelled the "save as" dialog —
-          // that's a normal outcome, not an error, so stay silent.
-          if (savedName) {
-            Toast.success('הקובץ "' + savedName + '" נשמר בהצלחה.');
-          }
+          Toast.success('הקובץ "' + savedName + '" ירד בהצלחה ונמצא בתיקיית ההורדות.');
         })
         .catch(function (err) {
-          Toast.error('השמירה נכשלה: ' + (err && err.message ? err.message : err));
+          Toast.error('ההורדה נכשלה: ' + (err && err.message ? err.message : err));
         });
       return;
     }
@@ -124,13 +120,11 @@
             }),
           })
           .then(function (count) {
-            // count is also 0 when the user cancels the folder-picker —
-            // that's not an error, so no toast is shown either way here.
-            if (count) Toast.success('נשמרו ' + count + ' קבצים בתיקייה שנבחרה.');
+            if (count) Toast.success('הורדו ' + count + ' קבצים לתיקיית ההורדות.');
             return count;
           })
           .catch(function (err) {
-            Toast.error('השמירה נכשלה: ' + (err && err.message ? err.message : err));
+            Toast.error('ההורדה נכשלה: ' + (err && err.message ? err.message : err));
             return 0;
           });
       }
