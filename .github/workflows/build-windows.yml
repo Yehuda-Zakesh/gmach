@@ -59,8 +59,27 @@ jobs:
           echo "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           echo "name=$($exe.Name)" >> $env:GITHUB_OUTPUT
 
-      - name: Upload exe
+      - name: Upload exe (build artifact, for CI history/debugging)
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.find.outputs.name }}
           path: ${{ steps.find.outputs.path }}
+
+      # A GitHub Actions artifact requires a GitHub login and a few clicks
+      # through the Actions tab to find, and expires after 90 days — not
+      # something a non-technical end user can be expected to do. A Release
+      # gives one permanent, public link that always points at the newest
+      # build: https://github.com/<owner>/<repo>/releases/latest
+      - name: Publish "latest" release with a stable download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "גמ\"ח תוכנה — הגרסה העדכנית"
+          body: |
+            הקובץ להורדה נמצא למטה תחת "Assets" — קובץ ה-exe יחיד, בלי צורך
+            בהתקנה. נבנה אוטומטית מ-commit ${{ github.sha }}.
+          make_latest: true
+          prerelease: false
+          files: ${{ steps.find.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

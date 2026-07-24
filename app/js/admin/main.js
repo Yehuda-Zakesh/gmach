@@ -1045,7 +1045,7 @@
       Persist.exportBackup(state.db);
       Toast.success('הגיבוי הורד.');
     });
-    Dom.must('#import-btn').addEventListener('click', importBackup);
+    Dom.must('#restore-btn').addEventListener('click', importBackup);
     Dom.setHidden(Dom.must('#help-intro-desktop'), !window.__TAURI__);
     Dom.setHidden(Dom.must('#help-intro-browser'), !!window.__TAURI__);
     Dom.setHidden(Dom.must('#help-workflow-desktop'), !window.__TAURI__);
