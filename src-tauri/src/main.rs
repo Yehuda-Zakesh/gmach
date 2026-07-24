@@ -390,6 +390,37 @@ fn open_admin_window(app: &AppHandle, database_json: &str, root: &Path) {
         .build();
 }
 
+/// The public catalog, opened from the admin console's "תצוגה מקדימה"
+/// button. `window.open()` doesn't reliably create a real window inside a
+/// Tauri webview (that button was silently doing nothing), so this opens a
+/// proper WebviewWindow instead — reading the database fresh from disk, the
+/// same way the main window does at launch.
+fn open_preview_window(app: &AppHandle) -> Result<(), String> {
+    if let Some(existing) = app.get_webview_window("preview") {
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let root = ensure_data_root().map_err(|e| e.to_string())?;
+    let database_json =
+        fs::read_to_string(root.join(DATABASE_FILE_NAME)).map_err(|e| e.to_string())?;
+
+    WebviewWindowBuilder::new(app, "preview", WebviewUrl::App("index.html".into()))
+        .title("תצוגה מקדימה — גמ\"ח תוכנה")
+        .inner_size(1200.0, 820.0)
+        .min_inner_size(820.0, 600.0)
+        .initialization_script(&boot_script(&database_json, &root))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn open_preview(app: AppHandle) -> Result<(), String> {
+    open_preview_window(&app)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -401,7 +432,8 @@ fn main() {
             download_package,
             open_item,
             import_software_files,
-            list_software_directory
+            list_software_directory,
+            open_preview
         ])
         .setup(|app| {
             let root = ensure_data_root()?;

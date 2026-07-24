@@ -1046,7 +1046,20 @@
       Toast.success('הגיבוי הורד.');
     });
     Dom.must('#import-btn').addEventListener('click', importBackup);
+    Dom.setHidden(Dom.must('#help-intro-desktop'), !window.__TAURI__);
+    Dom.setHidden(Dom.must('#help-intro-browser'), !!window.__TAURI__);
+    Dom.setHidden(Dom.must('#help-workflow-desktop'), !window.__TAURI__);
+    Dom.setHidden(Dom.must('#help-workflow-browser'), !!window.__TAURI__);
+    Dom.setHidden(Dom.must('#help-firefox-note'), !!window.__TAURI__);
+    Dom.setHidden(Dom.must('#help-preview-note'), !window.__TAURI__);
+
     Dom.must('#preview-btn').addEventListener('click', function () {
+      if (window.__TAURI__) {
+        window.__TAURI__.core.invoke('open_preview').catch(function (err) {
+          Toast.error('פתיחת התצוגה המקדימה נכשלה: ' + (err && err.message ? err.message : err));
+        });
+        return;
+      }
       window.open('index.html', '_blank', 'noopener');
     });
 

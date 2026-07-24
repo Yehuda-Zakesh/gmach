@@ -320,13 +320,32 @@
           <div class="panel">
             <div class="panel__head"><span class="panel__title">איך זה עובד</span></div>
             <div class="panel__body" style="display: grid; gap: 16px">
-              <p class="view__intro">
+              <p class="view__intro" id="help-intro-desktop" hidden>
                 כל המידע נשמר בקובץ <code>database.json</code>, בתוך תיקיית
                 <code>data</code> שנוצרת אוטומטית ליד קובץ ההפעלה (.exe) בהרצה
                 הראשונה. ממשק הניהול כותב אליו ישירות — אין צורך לערוך אותו ידנית.
               </p>
+              <p class="view__intro" id="help-intro-browser" hidden>
+                כל המידע נשמר בקובץ <code>database.json</code>, בתוך תיקיית הפרויקט
+                שמחוברת מהדפדפן. ממשק הניהול כותב אליו ישירות — אין צורך לערוך
+                אותו ידנית.
+              </p>
 
-              <div class="notice notice--info">
+              <div class="notice notice--info" id="help-workflow-desktop" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+                <div>
+                  <strong>סדר עבודה מומלץ:</strong> לחצו "הוספת קבצים מהמחשב" כדי לבחור
+                  תוכנות מהמחשב — הן יועתקו אוטומטית לתיקיית <code>data/software</code>
+                  (אפשר גם להעתיק קבצים לשם ידנית דרך הסייר). כל כניסה למסך הניהול סורקת
+                  את התיקייה הזו אוטומטית, כך שאין צורך ללחוץ על שום כפתור "סריקה" —
+                  פשוט ערכו את הפריטים החדשים (שם, תיאור, אייקון) ולחצו "שמירה" בסיום.
+                </div>
+              </div>
+
+              <div class="notice notice--info" id="help-workflow-browser" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
@@ -350,7 +369,7 @@
                 </div>
               </div>
 
-              <div class="notice">
+              <div class="notice" id="help-firefox-note" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
@@ -359,6 +378,18 @@
                   <strong>Firefox:</strong> אינו תומך בכתיבה ישירה לקבצים. הסריקה עובדת, אך
                   השמירה מורידה את שני הקבצים ויש להעתיק אותם לתיקיית <code>data</code>.
                   לתחזוקה שוטפת עדיף Chrome או Edge.
+                </div>
+              </div>
+
+              <div class="notice notice--info" id="help-preview-note" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+                <div>
+                  <strong>תצוגה מקדימה:</strong> פותחת חלון נפרד עם הקטלוג הציבורי כפי
+                  שהוא נראה כרגע על הדיסק. שינויים שלא נשמרו עדיין לא יופיעו בה — לחצו
+                  "שמירה" קודם כדי לראות אותם.
                 </div>
               </div>
 
