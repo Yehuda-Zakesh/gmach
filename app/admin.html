@@ -276,35 +276,44 @@
 
           <div class="panel">
             <div class="panel__head"><span class="panel__title">אבטחה וגיבוי</span></div>
-            <div class="panel__body" style="display: flex; gap: 12px; flex-wrap: wrap">
-              <button class="btn" type="button" id="password-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                שינוי סיסמה
-              </button>
+            <div class="panel__body" style="display: grid; gap: 8px">
+              <div style="display: flex; gap: 12px; flex-wrap: wrap">
+                <button class="btn" type="button" id="password-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  שינוי סיסמה
+                </button>
 
-              <button class="btn" type="button" id="export-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <path d="M7 10l5 5 5-5" />
-                  <path d="M12 15V3" />
-                </svg>
-                ייצוא גיבוי
-              </button>
+                <button class="btn" type="button" id="export-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
+                  ייצוא גיבוי
+                </button>
 
-              <button class="btn" type="button" id="restore-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <path d="M17 8l-5-5-5 5" />
-                  <path d="M12 3v12" />
-                </svg>
-                שחזור מגיבוי
-              </button>
+                <button class="btn" type="button" id="restore-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M17 8l-5-5-5 5" />
+                    <path d="M12 3v12" />
+                  </svg>
+                  שחזור מגיבוי
+                </button>
+              </div>
+
+              <span class="field__hint">
+                הגיבוי כולל רק את רשימת הפריטים (שמות, תיאורים, קטגוריות וכו') —
+                <strong>הוא אינו כולל את קבצי התוכנה עצמם.</strong> קבצי התוכנה נשארים
+                בתיקיית <code>data/software</code> ויש לגבות אותה בנפרד (למשל בהעתקה
+                ידנית) אם רוצים גיבוי מלא.
+              </span>
             </div>
           </div>
 

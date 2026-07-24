@@ -23,21 +23,73 @@
   var Db = NS.require('Db');
   var Utils = NS.require('Utils');
   var Toast = NS.require('ui.Toast');
+  var Modal = NS.require('ui.Modal');
+  var Dom = NS.require('ui.Dom');
   var Logger = NS.require('Logger');
 
   /** Spacing between files of a multi-file package download. */
   var PACKAGE_STAGGER_MS = 700;
 
+  /**
+   * Opens a determinate progress modal wired to the "download-progress"
+   * Tauri event emitted from copy_with_progress() in main.rs — large
+   * installers are streamed in 1 MiB chunks specifically so this can show a
+   * real percentage instead of the UI just sitting there looking frozen.
+   * @returns {{stop: function}} call stop() once the invoke() promise settles
+   */
+  function openDownloadProgressModal() {
+    var bar = Dom.h('div.progress__bar');
+    var track = Dom.h('div.progress', {}, [bar]);
+    var status = Dom.h('div', {
+      style: { 'font-size': '0.85rem', color: 'var(--text-2)' },
+      text: 'מתחיל…',
+    });
+
+    var handle = Modal.open({
+      title: 'מוריד…',
+      body: Dom.h('div', { style: { display: 'grid', gap: '12px' } }, [track, status]),
+      closeOnBackdrop: false,
+      footer: [],
+    });
+
+    var unlisten = null;
+    window.__TAURI__.event
+      .listen('download-progress', function (evt) {
+        var p = evt.payload;
+        var pct = p.bytesTotal ? Math.min(100, Math.round((p.bytesDone / p.bytesTotal) * 100)) : 0;
+        bar.style.width = pct + '%';
+
+        var fileLabel =
+          p.fileCount > 1 ? 'קובץ ' + p.fileIndex + ' מתוך ' + p.fileCount + ' — ' + p.fileName : p.fileName;
+
+        status.textContent =
+          fileLabel + ' (' + Utils.formatSize(p.bytesDone) + ' מתוך ' + Utils.formatSize(p.bytesTotal) + ', ' + pct + '%)';
+      })
+      .then(function (fn) {
+        unlisten = fn;
+      });
+
+    return {
+      stop: function () {
+        if (unlisten) unlisten();
+        handle.close();
+      },
+    };
+  }
+
   function triggerDownload(relPath, suggestedName) {
     var name = suggestedName || Paths.basename(relPath);
 
     if (window.__TAURI__) {
+      var progress = openDownloadProgressModal();
       window.__TAURI__.core
         .invoke('download_item', { relPath: relPath, suggestedName: name })
         .then(function (savedName) {
+          progress.stop();
           Toast.success('הקובץ "' + savedName + '" ירד בהצלחה ונמצא בתיקיית ההורדות.');
         })
         .catch(function (err) {
+          progress.stop();
           Toast.error('ההורדה נכשלה: ' + (err && err.message ? err.message : err));
         });
       return;
@@ -110,6 +162,7 @@
       }
 
       if (window.__TAURI__) {
+        var progress = openDownloadProgressModal();
         return window.__TAURI__.core
           .invoke('download_package', {
             relPaths: files.map(function (f) {
@@ -120,10 +173,12 @@
             }),
           })
           .then(function (count) {
+            progress.stop();
             if (count) Toast.success('הורדו ' + count + ' קבצים לתיקיית ההורדות.');
             return count;
           })
           .catch(function (err) {
+            progress.stop();
             Toast.error('ההורדה נכשלה: ' + (err && err.message ? err.message : err));
             return 0;
           });

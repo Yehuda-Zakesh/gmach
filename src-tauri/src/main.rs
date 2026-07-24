@@ -2,11 +2,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use base64::Engine;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
 
 /// Seed content embedded into the exe at compile time, used only the first
@@ -127,6 +129,81 @@ fn write_image(rel_path: String, base64_data: String) -> Result<String, String> 
     Ok(rel_path)
 }
 
+/// Emitted to the frontend while copy_with_progress runs, so a multi-GB
+/// installer shows a moving bar instead of the UI looking frozen.
+#[derive(Clone, serde::Serialize)]
+struct CopyProgress {
+    #[serde(rename = "fileName")]
+    file_name: String,
+    #[serde(rename = "fileIndex")]
+    file_index: usize,
+    #[serde(rename = "fileCount")]
+    file_count: usize,
+    #[serde(rename = "bytesDone")]
+    bytes_done: u64,
+    #[serde(rename = "bytesTotal")]
+    bytes_total: u64,
+    done: bool,
+}
+
+/// Copies `source` to `dest` in 1 MiB chunks, emitting `event_name` on `app`
+/// at most a few times a second (throttled by elapsed time, not by chunk
+/// count, so it behaves the same on a fast SSD and a slow drive). A plain
+/// `fs::copy()` is a single blocking syscall with no hook to report
+/// progress from, which is exactly the "frozen UI on a big file" problem
+/// this replaces.
+fn copy_with_progress(
+    app: &AppHandle,
+    event_name: &str,
+    source: &Path,
+    dest: &Path,
+    file_name: &str,
+    file_index: usize,
+    file_count: usize,
+) -> std::io::Result<u64> {
+    const CHUNK: usize = 1024 * 1024;
+    const MIN_EMIT_INTERVAL_MS: u128 = 120;
+
+    let mut input = fs::File::open(source)?;
+    let total = input.metadata()?.len();
+    let mut output = fs::File::create(dest)?;
+
+    let mut buf = vec![0u8; CHUNK];
+    let mut copied: u64 = 0;
+    let mut last_emit = Instant::now();
+
+    let emit = |app: &AppHandle, copied: u64, done: bool| {
+        let _ = app.emit(
+            event_name,
+            CopyProgress {
+                file_name: file_name.to_string(),
+                file_index,
+                file_count,
+                bytes_done: copied,
+                bytes_total: total,
+                done,
+            },
+        );
+    };
+
+    loop {
+        let n = input.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        output.write_all(&buf[..n])?;
+        copied += n as u64;
+
+        if last_emit.elapsed().as_millis() >= MIN_EMIT_INTERVAL_MS {
+            emit(app, copied, false);
+            last_emit = Instant::now();
+        }
+    }
+
+    emit(app, copied, true);
+    Ok(copied)
+}
+
 /// Picks a name that doesn't collide with anything already in `dir`,
 /// appending " (1)", " (2)", … before the extension — the same convention
 /// browsers use for repeat downloads.
@@ -166,7 +243,7 @@ fn downloads_dir() -> Result<PathBuf, String> {
 /// no destination choice. The whole point is that someone with zero
 /// computer background always finds it in the same predictable place.
 #[tauri::command]
-fn download_item(rel_path: String, suggested_name: String) -> Result<String, String> {
+fn download_item(app: AppHandle, rel_path: String, suggested_name: String) -> Result<String, String> {
     let source = resolve_in_data_root(&rel_path)?;
     if !source.exists() {
         return Err("הקובץ אינו קיים.".into());
@@ -174,7 +251,8 @@ fn download_item(rel_path: String, suggested_name: String) -> Result<String, Str
 
     let dir = downloads_dir()?;
     let dest = unique_destination(&dir, &suggested_name);
-    fs::copy(&source, &dest).map_err(|e| e.to_string())?;
+    copy_with_progress(&app, "download-progress", &source, &dest, &suggested_name, 1, 1)
+        .map_err(|e| e.to_string())?;
 
     Ok(dest
         .file_name()
@@ -186,11 +264,16 @@ fn download_item(rel_path: String, suggested_name: String) -> Result<String, Str
 /// Copies every file of the package straight into the user's Downloads
 /// folder — no dialog, same reasoning as download_item above.
 #[tauri::command]
-fn download_package(rel_paths: Vec<String>, suggested_names: Vec<String>) -> Result<usize, String> {
+fn download_package(
+    app: AppHandle,
+    rel_paths: Vec<String>,
+    suggested_names: Vec<String>,
+) -> Result<usize, String> {
     let dir = downloads_dir()?;
+    let file_count = rel_paths.len();
 
     let mut copied = 0usize;
-    for (rel_path, name) in rel_paths.iter().zip(suggested_names.iter()) {
+    for (idx, (rel_path, name)) in rel_paths.iter().zip(suggested_names.iter()).enumerate() {
         let source = match resolve_in_data_root(rel_path) {
             Ok(p) => p,
             Err(_) => continue,
@@ -199,7 +282,9 @@ fn download_package(rel_paths: Vec<String>, suggested_names: Vec<String>) -> Res
             continue;
         }
         let dest = unique_destination(&dir, name);
-        if fs::copy(&source, dest).is_ok() {
+        if copy_with_progress(&app, "download-progress", &source, &dest, name, idx + 1, file_count)
+            .is_ok()
+        {
             copied += 1;
         }
     }
@@ -331,13 +416,14 @@ async fn import_software_files(app: AppHandle) -> Result<Vec<serde_json::Value>,
     let dest_dir = data_root().join("software");
     fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
 
+    let file_count = files.len();
     let mut added = Vec::new();
-    for src in files {
+    for (idx, src) in files.into_iter().enumerate() {
         let Some(os_name) = src.file_name() else { continue };
         let name = os_name.to_string_lossy().to_string();
         let dest = unique_destination(&dest_dir, &name);
 
-        if fs::copy(&src, &dest).is_err() {
+        if copy_with_progress(&app, "import-progress", &src, &dest, &name, idx + 1, file_count).is_err() {
             continue;
         }
 

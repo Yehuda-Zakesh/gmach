@@ -298,12 +298,67 @@
    * command), then reconciles the result exactly like a folder scan would —
    * so admins no longer need to drop files into the folder by hand first.
    */
+  /**
+   * Opens a determinate progress modal wired to the Tauri copy-progress
+   * events emitted from copy_with_progress() in main.rs — the big install
+   * files this deals with are streamed in 1 MiB chunks specifically so this
+   * can show real percentage instead of the UI just sitting frozen.
+   * @param {string} title
+   * @param {string} eventName 'import-progress' or 'download-progress'
+   * @param {string} initialStatus shown before the first progress event
+   * @returns {{stop: function}} call stop() once the invoke() promise settles
+   */
+  function openCopyProgressModal(title, eventName, initialStatus) {
+    var bar = Dom.h('div.progress__bar');
+    var track = Dom.h('div.progress', {}, [bar]);
+    var status = Dom.h('div', {
+      style: { 'font-size': '0.85rem', color: 'var(--text-2)' },
+      text: initialStatus,
+    });
+
+    var handle = Modal.open({
+      title: title,
+      body: Dom.h('div', { style: { display: 'grid', gap: '12px' } }, [track, status]),
+      closeOnBackdrop: false,
+      footer: [],
+    });
+
+    var unlisten = null;
+    if (window.__TAURI__) {
+      window.__TAURI__.event
+        .listen(eventName, function (evt) {
+          var p = evt.payload;
+          var pct = p.bytesTotal ? Math.min(100, Math.round((p.bytesDone / p.bytesTotal) * 100)) : 0;
+          bar.style.width = pct + '%';
+
+          var fileLabel =
+            p.fileCount > 1 ? 'קובץ ' + p.fileIndex + ' מתוך ' + p.fileCount + ' — ' + p.fileName : p.fileName;
+
+          status.textContent =
+            fileLabel + ' (' + Utils.formatSize(p.bytesDone) + ' מתוך ' + Utils.formatSize(p.bytesTotal) + ', ' + pct + '%)';
+        })
+        .then(function (fn) {
+          unlisten = fn;
+        });
+    }
+
+    return {
+      stop: function () {
+        if (unlisten) unlisten();
+        handle.close();
+      },
+    };
+  }
+
   function runImport() {
     if (!window.__TAURI__) return;
+
+    var progress = openCopyProgressModal('הוספת קבצים', 'import-progress', 'ממתין לבחירת קבצים…');
 
     return window.__TAURI__.core
       .invoke('import_software_files', {})
       .then(function (copied) {
+        progress.stop();
         if (!copied.length) return; // dialog cancelled, or nothing selected
 
         var entries = copied.map(function (f) {
@@ -327,6 +382,7 @@
         return outcome;
       })
       .catch(function (err) {
+        progress.stop();
         Logger.error('admin: import failed', err);
         Toast.error('ההוספה נכשלה: ' + (err && err.message ? err.message : err));
       });
