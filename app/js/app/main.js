@@ -485,10 +485,42 @@
       });
   }
 
+  /**
+   * Re-reads the database from disk (via the read_database command) and
+   * re-renders in place. Used after a background bundled-software sync so
+   * new items show up immediately — a plain page reload does NOT do this
+   * in the desktop build: the window's inline copy of the database is
+   * fixed at launch time, and there is no data/database.json to re-fetch
+   * inside the bundled frontend assets, so reload() would just replay the
+   * same stale snapshot.
+   */
+  function refreshFromDisk() {
+    if (!window.__TAURI__ || !window.__TAURI__.core) return;
+
+    window.__TAURI__.core
+      .invoke('read_database')
+      .then(function (json) {
+        var normalized = Schema.normalizeDatabase(JSON.parse(json));
+        Schema.refreshNewFlags(normalized.db);
+
+        state.db = normalized.db;
+        state.items = Db.visibleItems(normalized.db);
+        state.byId = Db.indexById(state.items);
+        state.index = Search.createIndex(state.items);
+
+        renderIdentity();
+        renderFilters();
+        renderFooterMeta();
+        render();
+      })
+      .catch(function (err) {
+        Logger.warn('main: could not refresh after a bundled-software sync —', err);
+      });
+  }
+
   function listenForBundledUpdates() {
     // Only present in the desktop build (src-tauri/src/bundled.rs emits
-    // this after a successful background sync). Never forces a reload —
-    // a visitor mid-browse should not lose their place.
+    // this after a successful background sync).
     if (!window.__TAURI__ || !window.__TAURI__.event) return;
 
     window.__TAURI__.event.listen('bundled-updates-applied', function (event) {
@@ -496,7 +528,8 @@
       var count = (payload.added || 0) + (payload.updated || 0);
       if (!count) return;
 
-      Toast.info('התווספו עדכוני תוכנה חדשים לספרייה. רענן את הדף כדי לראות אותם.', 0);
+      refreshFromDisk();
+      Toast.success('הספרייה עודכנה — נוספו או עודכנו ' + count + ' תוכנות.', 5000);
     });
   }
 
