@@ -104,22 +104,23 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    let db_path = data_root.join("database.json");
-    let db_text = fs::read_to_string(&db_path).map_err(|e| e.to_string())?;
-    let mut db: Value = serde_json::from_str(&db_text).map_err(|e| e.to_string())?;
-
-    let items = db
-        .get_mut("items")
-        .and_then(|v| v.as_array_mut())
-        .ok_or_else(|| "database.json has no items array".to_string())?;
-
     let bundled_dir = data_root.join("software").join("bundled");
     fs::create_dir_all(&bundled_dir).map_err(|e| e.to_string())?;
 
-    let mut added = 0usize;
-    let mut updated = 0usize;
+    let db_path = data_root.join("database.json");
 
     for mi in &manifest.items {
+        // Re-read the database fresh for every item (not once up front) so a
+        // multi-gigabyte download earlier in this same pass can't hold a
+        // stale in-memory copy while the admin edits something else via the
+        // admin console in parallel.
+        let db_text = fs::read_to_string(&db_path).map_err(|e| e.to_string())?;
+        let mut db: Value = serde_json::from_str(&db_text).map_err(|e| e.to_string())?;
+        let items = match db.get_mut("items").and_then(|v| v.as_array_mut()) {
+            Some(items) => items,
+            None => continue,
+        };
+
         let existing_idx = items.iter().position(|it| {
             it.pointer("/extra/bundledId").and_then(|v| v.as_str()) == Some(mi.id.as_str())
         });
@@ -154,6 +155,9 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         let rel_path = format!("software/bundled/{file_name}");
         let now = now_iso();
         let size = bytes.len() as u64;
+        drop(bytes); // large buffer no longer needed once written to disk
+
+        let mut event = BundledUpdateEvent { added: 0, updated: 0 };
 
         if let Some(i) = existing_idx {
             let item = &mut items[i];
@@ -174,7 +178,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             item["extra"]["bundledId"] = json!(mi.id);
             item["extra"]["bundledVersion"] = json!(mi.version);
             item["source"] = json!("bundled");
-            updated += 1;
+            event.updated = 1;
         } else {
             items.push(json!({
                 "id": format!("bundled-{}", mi.id),
@@ -203,21 +207,16 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                 "source": "bundled",
                 "extra": { "bundledId": mi.id, "bundledVersion": mi.version }
             }));
-            added += 1;
+            event.added = 1;
         }
+
+        // Persisted and announced the moment THIS item is ready — a 30MB
+        // installer must not sit waiting behind gigabytes of other
+        // downloads still in flight.
+        let text = serde_json::to_string_pretty(&db).map_err(|e| e.to_string())?;
+        fs::write(&db_path, text).map_err(|e| e.to_string())?;
+        let _ = app.emit("bundled-updates-applied", event);
     }
-
-    if added == 0 && updated == 0 {
-        return Ok(());
-    }
-
-    let text = serde_json::to_string_pretty(&db).map_err(|e| e.to_string())?;
-    fs::write(&db_path, text).map_err(|e| e.to_string())?;
-
-    // The frontend decides what to do with this (see app/js/app/main.js) —
-    // typically a toast offering a refresh, never a forced reload while
-    // someone is mid-browse.
-    let _ = app.emit("bundled-updates-applied", BundledUpdateEvent { added, updated });
 
     Ok(())
 }

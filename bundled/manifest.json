@@ -12,16 +12,6 @@
       "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows.exe"
     },
     {
-      "id": "otzaria-windows-full",
-      "name": "אוצריא — גרסה מלאה (כולל מאגר הספרים)",
-      "version": "0.9.95+699",
-      "description": "חבילה מלאה הכוללת את תוכנת אוצריא יחד עם כל מאגר הספרים — מתאימה להתקנה ראשונית ללא צורך בחיבור לרשת לאחר ההורדה.",
-      "category": "אוצריא",
-      "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך. קובץ גדול — ההורדה עשויה לקחת זמן.",
-      "fileName": "otzaria-0.9.95-windows-full.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe"
-    },
-    {
       "id": "otzaria-windows-portable",
       "name": "אוצריא — גרסה ניידת (ZIP)",
       "version": "0.9.95+699",
@@ -30,6 +20,16 @@
       "instructions": "יש לחלץ את קובץ ה-ZIP לתיקייה ולהריץ את קובץ ההרצה מתוכה.",
       "fileName": "otzaria-windows.zip",
       "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-windows.zip"
+    },
+    {
+      "id": "kleikodesh-windows",
+      "name": "כלי קודש",
+      "version": "8.7.2",
+      "description": "כלי עזר ללימוד ולעיון בספרי קודש.",
+      "category": "כלי קודש",
+      "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך.",
+      "fileName": "KleiKodeshSetup-v8.7.2.exe",
+      "downloadUrl": "https://github.com/KleiKodesh/KleiKodeshProject/releases/download/v8.7.2/KleiKodeshSetup-v8.7.2.exe"
     },
     {
       "id": "zayit-windows",
@@ -42,16 +42,6 @@
       "downloadUrl": "https://github.com/kdroidFilter/Zayit/releases/download/v0.5.4/Zayit-0.5.4-windows-x64.exe"
     },
     {
-      "id": "zayit-seforim-db-part1",
-      "name": "זית — מסד הנתונים (חלק 1 מ-2)",
-      "version": "v1-20260601094341",
-      "description": "חלק ראשון ממסד הנתונים של ספריית הספרים הנדרש עבור זית (Zayit).",
-      "category": "זית",
-      "instructions": "יש להוריד גם את חלק 2, ולהרכיב את שני הקבצים יחד לפי ההוראות באפליקציית זית.",
-      "fileName": "seforim_bundle.tar.zst.part01",
-      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part01"
-    },
-    {
       "id": "zayit-seforim-db-part2",
       "name": "זית — מסד הנתונים (חלק 2 מ-2)",
       "version": "v1-20260601094341",
@@ -62,14 +52,24 @@
       "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part02"
     },
     {
-      "id": "kleikodesh-windows",
-      "name": "כלי קודש",
-      "version": "8.7.2",
-      "description": "כלי עזר ללימוד ולעיון בספרי קודש.",
-      "category": "כלי קודש",
-      "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך.",
-      "fileName": "KleiKodeshSetup-v8.7.2.exe",
-      "downloadUrl": "https://github.com/KleiKodesh/KleiKodeshProject/releases/download/v8.7.2/KleiKodeshSetup-v8.7.2.exe"
+      "id": "otzaria-windows-full",
+      "name": "אוצריא — גרסה מלאה (כולל מאגר הספרים)",
+      "version": "0.9.95+699",
+      "description": "חבילה מלאה הכוללת את תוכנת אוצריא יחד עם כל מאגר הספרים — מתאימה להתקנה ראשונית ללא צורך בחיבור לרשת לאחר ההורדה.",
+      "category": "אוצריא",
+      "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך. קובץ גדול — ההורדה עשויה לקחת זמן.",
+      "fileName": "otzaria-0.9.95-windows-full.exe",
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe"
+    },
+    {
+      "id": "zayit-seforim-db-part1",
+      "name": "זית — מסד הנתונים (חלק 1 מ-2)",
+      "version": "v1-20260601094341",
+      "description": "חלק ראשון ממסד הנתונים של ספריית הספרים הנדרש עבור זית (Zayit).",
+      "category": "זית",
+      "instructions": "יש להוריד גם את חלק 2, ולהרכיב את שני הקבצים יחד לפי ההוראות באפליקציית זית.",
+      "fileName": "seforim_bundle.tar.zst.part01",
+      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part01"
     }
   ]
 }
