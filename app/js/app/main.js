@@ -615,7 +615,9 @@
       return;
     }
 
-    downloadStatusListening = true;
+    // Marked as "listening" only once the registration actually succeeds —
+    // if event.listen() rejects (e.g. a transient IPC/permission hiccup),
+    // we must retry rather than silently never receiving another event.
     tauriListen('bundled-download-status', function (event) {
       var p = event.payload || {};
       if (!p.id) return;
@@ -654,7 +656,14 @@
 
       refreshFromDisk();
       Toast.success((p.added ? 'נוספה תוכנה חדשה: ' : 'עודכנה תוכנה: ') + p.name, 5000);
-    });
+    })
+      .then(function () {
+        downloadStatusListening = true;
+      })
+      .catch(function (err) {
+        Logger.warn('main: listen(bundled-download-status) failed, retrying —', err);
+        setTimeout(listenForDownloadStatus, 1000);
+      });
   }
 
   function listenForSyncStatus() {
@@ -664,7 +673,6 @@
       return;
     }
 
-    syncStatusListening = true;
     tauriListen('bundled-sync-status', function (event) {
       var p = event.payload || {};
       if (p.status === 'started') {
@@ -677,7 +685,14 @@
           7000
         );
       }
-    });
+    })
+      .then(function () {
+        syncStatusListening = true;
+      })
+      .catch(function (err) {
+        Logger.warn('main: listen(bundled-sync-status) failed, retrying —', err);
+        setTimeout(listenForSyncStatus, 1000);
+      });
   }
 
   function listenForBundledUpdates() {

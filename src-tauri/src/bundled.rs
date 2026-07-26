@@ -23,6 +23,25 @@ use tauri::{AppHandle, Emitter};
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/Yehuda-Zakesh/gmach/main/bundled/manifest.json";
 const REQUEST_TIMEOUT_SECS: u64 = 30;
+const LOG_FILE_NAME: &str = "bundled-sync.log";
+
+/// כותב שורה מתויגת-זמן ל-`<data_root>/bundled-sync.log`. שלא כמו ה-
+/// `eprintln!` שממילא לא נראה בבילד release (אין חלון קונסולה — ראו
+/// `windows_subsystem = "windows"` ב-main.rs), הקובץ הזה נכתב **תמיד**,
+/// גם ב-release, כדי שאפשר יהיה לדעת בפועל מה קרה בסנכרון בלי לבנות
+/// גרסת debug. best-effort לגמרי: כשלון כתיבה ללוג עצמו לעולם לא אמור
+/// להשפיע על הסנכרון.
+fn log_line(data_root: &Path, msg: &str) {
+    use std::io::Write as _;
+    let line = format!("[{}] {}\n", now_iso(), msg);
+    if let Ok(mut f) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(data_root.join(LOG_FILE_NAME))
+    {
+        let _ = f.write_all(line.as_bytes());
+    }
+}
 
 /// How often to re-check for updates while the app stays open. A launch
 /// with no connection yet, or a connection that only appears later in a
@@ -95,8 +114,10 @@ struct SyncStatusEvent {
 /// `RECHECK_INTERVAL_SECS` for as long as the app stays open.
 pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
     tauri::async_runtime::spawn(async move {
+        log_line(&data_root, "spawn_sync: loop starting");
         loop {
             if let Err(e) = sync(&app, &data_root).await {
+                log_line(&data_root, &format!("sync() returned Err: {e}"));
                 let _ = app.emit(
                     "bundled-sync-status",
                     SyncStatusEvent {
@@ -110,12 +131,17 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
                 let _ = e;
             }
 
+            log_line(
+                &data_root,
+                &format!("sleeping {RECHECK_INTERVAL_SECS}s before next check"),
+            );
             tokio::time::sleep(Duration::from_secs(RECHECK_INTERVAL_SECS)).await;
         }
     });
 }
 
 async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
+    log_line(data_root, "sync: started, fetching manifest");
     let _ = app.emit(
         "bundled-sync-status",
         SyncStatusEvent {
@@ -142,6 +168,11 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
 
+    log_line(
+        data_root,
+        &format!("sync: manifest fetched, {} item(s)", manifest.items.len()),
+    );
+
     if manifest.items.is_empty() {
         return Ok(());
     }
@@ -166,6 +197,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
             if !opted_in {
+                log_line(data_root, &format!("{}: skipped (large, not opted in)", mi.id));
                 continue;
             }
         }
@@ -195,8 +227,17 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         // to download or write. If the DB says it's current but the file is
         // missing or empty, we re-download it.
         if existing_idx.is_some() && current_version == mi.version && file_exists_and_valid {
+            log_line(
+                data_root,
+                &format!("{}: skipped (already at {} and file present)", mi.id, mi.version),
+            );
             continue;
         }
+
+        log_line(
+            data_root,
+            &format!("{}: downloading {} -> {}", mi.id, mi.download_url, temp_dest.display()),
+        );
 
         let _ = fs::remove_file(&temp_dest);
 
@@ -205,6 +246,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         let size = match download_with_progress(app, &client, mi, &temp_dest).await {
             Ok(size) => size,
             Err(err) => {
+                log_line(data_root, &format!("{}: download FAILED: {}", mi.id, err));
                 let _ = fs::remove_file(&temp_dest);
                 let _ = app.emit(
                     "bundled-download-status",
@@ -223,6 +265,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                 continue;
             }
         };
+        log_line(data_root, &format!("{}: download OK ({} bytes)", mi.id, size));
 
         if let Err(e) = fs::rename(&temp_dest, &dest) {
             let _ = fs::remove_file(&dest);
@@ -308,6 +351,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         );
     }
 
+    log_line(data_root, "sync: done");
     let _ = app.emit(
         "bundled-sync-status",
         SyncStatusEvent {
