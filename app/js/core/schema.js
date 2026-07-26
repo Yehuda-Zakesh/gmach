@@ -54,6 +54,9 @@
     size: 0,
     missing: false,
     tags: [],
+    /** 'local' (added/scanned by the admin) | 'bundled' (synced automatically
+     * from the online catalog — see src-tauri/src/main.rs sync_bundled_software). */
+    source: 'local',
     /** Reserved for future fields so they never collide with core keys. */
     extra: {},
   };
@@ -200,6 +203,7 @@
       item.size = Math.max(0, Number(item.size) || 0);
       item.parentId = item.parentId ? Utils.str(item.parentId) : null;
       item.tags = Array.isArray(item.tags) ? item.tags.map(Utils.str).filter(Boolean) : [];
+      item.source = item.source === 'bundled' ? 'bundled' : 'local';
 
       if (!Utils.isPlainObject(item.extra)) item.extra = {};
 

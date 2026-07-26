@@ -557,6 +557,11 @@
   color: var(--danger);
 }
 
+.notice--info {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .notice--info svg {
   color: var(--accent);
 }

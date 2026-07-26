@@ -11,6 +11,8 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
 
+mod bundled;
+
 /// Seed content embedded into the exe at compile time, used only the first
 /// time the app runs (when data/ doesn't exist yet beside the exe).
 const SEED_DATABASE_JSON: &str = include_str!("../../seed/database.json");
@@ -536,6 +538,11 @@ fn main() {
                 .maximized(true)
                 .initialization_script(&boot_script(&database_json, &root))
                 .build()?;
+
+            // Bundled-software catalog sync: entirely best-effort, runs
+            // after the window above already exists so a slow or missing
+            // connection never delays opening the app. See bundled.rs.
+            bundled::spawn_sync(app.handle().clone(), root.clone());
 
             // Native menu: the app's one entrance into the admin console.
             // Deliberately not a link inside index.html — admin.html stays

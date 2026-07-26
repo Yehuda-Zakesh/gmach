@@ -485,11 +485,28 @@
       });
   }
 
+  function listenForBundledUpdates() {
+    // Only present in the desktop build (src-tauri/src/bundled.rs emits
+    // this after a successful background sync). Never forces a reload —
+    // a visitor mid-browse should not lose their place.
+    if (!window.__TAURI__ || !window.__TAURI__.event) return;
+
+    window.__TAURI__.event.listen('bundled-updates-applied', function (event) {
+      var payload = event.payload || {};
+      var count = (payload.added || 0) + (payload.updated || 0);
+      if (!count) return;
+
+      Toast.info('התווספו עדכוני תוכנה חדשים לספרייה. רענן את הדף כדי לראות אותם.', 0);
+    });
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
   } else {
     start();
   }
+
+  listenForBundledUpdates();
 
   NS.define('app.Main', { start: start, state: state });
 })(window.USBLib);
