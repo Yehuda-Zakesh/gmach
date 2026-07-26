@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter};
 
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/Yehuda-Zakesh/gmach/main/bundled/manifest.json";
-const REQUEST_TIMEOUT_SECS: u64 = 15;
+const REQUEST_TIMEOUT_SECS: u64 = 30;
 
 /// How often to re-check for updates while the app stays open. A launch
 /// with no connection yet, or a connection that only appears later in a
@@ -87,9 +87,6 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
     tauri::async_runtime::spawn(async move {
         loop {
             if let Err(e) = sync(&app, &data_root).await {
-                // Deliberately quiet: no network, a GitHub hiccup, or a
-                // malformed manifest are all routine and must never interrupt
-                // an otherwise-offline app. Visible only in a dev console.
                 #[cfg(debug_assertions)]
                 eprintln!("bundled sync skipped: {e}");
                 #[cfg(not(debug_assertions))]
@@ -104,6 +101,8 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
 async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .user_agent("Gmach/1.0.0 bundled-sync")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -160,19 +159,33 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        // Already at the published version — nothing to download or write.
-        if existing_idx.is_some() && current_version == mi.version {
+        let final_dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
+        let temp_dest = final_dest.with_extension("part");
+
+        let file_exists_and_valid = final_dest.exists()
+            && fs::metadata(&final_dest)
+                .map(|m| m.len() > 0)
+                .unwrap_or(false);
+
+        // If the item is already at the published version AND the file exists,
+        // there is nothing to do. If the DB says it's current but the file is
+        // missing or empty, we re-download it.
+        if existing_idx.is_some() && current_version == mi.version && file_exists_and_valid {
             continue;
         }
 
-        let dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
         let is_new = existing_idx.is_none();
 
-        // A failed download for one item must never abort the rest of the
-        // catalog sync — skip it and try again on the next launch.
-        let size = match download_with_progress(app, &client, mi, &dest).await {
+        // Clean up any stale partial download before starting a new one.
+        let _ = fs::remove_file(&temp_dest);
+
+        let size = match download_with_progress(app, &client, mi, &temp_dest).await {
             Ok(size) => size,
-            Err(_) => {
+            Err(err) => {
+                let _ = fs::remove_file(&temp_dest);
+                #[cfg(debug_assertions)]
+                eprintln!("bundled download failed for {}: {}", mi.id, err);
+
                 let _ = app.emit(
                     "bundled-download-status",
                     DownloadStatusEvent {
@@ -188,7 +201,17 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             }
         };
 
-        let file_name = dest
+        // Replace the destination atomically-ish: if rename fails because the
+        // file is locked or already exists, try removing the old file first.
+        if let Err(e) = fs::rename(&temp_dest, &final_dest) {
+            let _ = fs::remove_file(&final_dest);
+            fs::rename(&temp_dest, &final_dest).map_err(|e2| {
+                let _ = fs::remove_file(&temp_dest);
+                format!("rename failed: {}; retry failed: {}", e, e2)
+            })?;
+        }
+
+        let file_name = final_dest
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or(&mi.file_name)
