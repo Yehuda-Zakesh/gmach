@@ -83,6 +83,10 @@
     },
     lastScan: null,
     language: 'he',
+    /** Per-group opt-in for large bundled downloads (see bundled/manifest.json's
+     * "large"/"group" fields and src-tauri/src/bundled.rs) — off by default,
+     * since these are multi-gigabyte files nobody should get without asking. */
+    bundledOptIn: {},
   };
 
   var DATABASE_DEFAULTS = {
@@ -270,6 +274,11 @@
       db.settings.softwareRoot =
         Paths.normalize(db.settings.softwareRoot) || SETTINGS_DEFAULTS.softwareRoot;
       db.settings.ui.newDays = Utils.clamp(Number(db.settings.ui.newDays) || 21, 0, 365);
+
+      if (!Utils.isPlainObject(db.settings.bundledOptIn)) db.settings.bundledOptIn = {};
+      Object.keys(db.settings.bundledOptIn).forEach(function (key) {
+        db.settings.bundledOptIn[key] = !!db.settings.bundledOptIn[key];
+      });
 
       if (!Array.isArray(db.items)) {
         repairs.push('רשימת הפריטים הייתה פגומה ואופסה.');

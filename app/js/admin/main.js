@@ -746,6 +746,8 @@
     el.settings.accent.value = s.ui.accent;
     el.settings.newDays.value = String(s.ui.newDays);
     el.settings.showCategories.checked = s.ui.showCategories;
+    el.settings.bundledOtzariaFull.checked = !!s.bundledOptIn['otzaria-full'];
+    el.settings.bundledZayitDb.checked = !!s.bundledOptIn['zayit-seforim-db'];
   }
 
   function applySettings() {
@@ -760,6 +762,8 @@
     s.contact.visible = el.settings.contactVisible.checked;
     s.ui.showCategories = el.settings.showCategories.checked;
     s.ui.newDays = Utils.clamp(Number(el.settings.newDays.value) || 0, 0, 365);
+    s.bundledOptIn['otzaria-full'] = el.settings.bundledOtzariaFull.checked;
+    s.bundledOptIn['zayit-seforim-db'] = el.settings.bundledZayitDb.checked;
 
     var root = Paths.normalize(el.settings.softwareRoot.value);
     if (!root) {
@@ -1077,6 +1081,8 @@
       accent: Dom.must('#set-accent'),
       newDays: Dom.must('#set-new-days'),
       showCategories: Dom.must('#set-show-categories'),
+      bundledOtzariaFull: Dom.must('#set-bundled-otzaria-full'),
+      bundledZayitDb: Dom.must('#set-bundled-zayit-db'),
     };
   }
 

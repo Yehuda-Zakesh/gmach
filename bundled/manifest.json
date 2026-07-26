@@ -49,7 +49,9 @@
       "category": "זית",
       "instructions": "יש להוריד גם את חלק 1, ולהרכיב את שני הקבצים יחד לפי ההוראות באפליקציית זית.",
       "fileName": "seforim_bundle.tar.zst.part02",
-      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part02"
+      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part02",
+      "large": true,
+      "group": "zayit-seforim-db"
     },
     {
       "id": "otzaria-windows-full",
@@ -59,7 +61,9 @@
       "category": "אוצריא",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך. קובץ גדול — ההורדה עשויה לקחת זמן.",
       "fileName": "otzaria-0.9.95-windows-full.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe"
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe",
+      "large": true,
+      "group": "otzaria-full"
     },
     {
       "id": "zayit-seforim-db-part1",
@@ -69,7 +73,9 @@
       "category": "זית",
       "instructions": "יש להוריד גם את חלק 2, ולהרכיב את שני הקבצים יחד לפי ההוראות באפליקציית זית.",
       "fileName": "seforim_bundle.tar.zst.part01",
-      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part01"
+      "downloadUrl": "https://github.com/kdroidFilter/SeforimLibrary/releases/download/v1-20260601094341/seforim_bundle.tar.zst.part01",
+      "large": true,
+      "group": "zayit-seforim-db"
     }
   ]
 }

@@ -47,6 +47,17 @@ struct ManifestItem {
     file_name: String,
     #[serde(rename = "downloadUrl")]
     download_url: String,
+    /// Multi-gigabyte items are opt-in only — see admin.html's "תוכנות
+    /// מובנות גדולות" panel and db.settings.bundledOptIn. Absent/false
+    /// means "download for everyone automatically", same as before this
+    /// field existed.
+    #[serde(default)]
+    large: bool,
+    /// Groups items that must be turned on/off together (e.g. the two
+    /// halves of one database). Falls back to `id` when absent, so a
+    /// large item without an explicit group is just its own group of one.
+    #[serde(default)]
+    group: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -116,6 +127,18 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         // admin console in parallel.
         let db_text = fs::read_to_string(&db_path).map_err(|e| e.to_string())?;
         let mut db: Value = serde_json::from_str(&db_text).map_err(|e| e.to_string())?;
+
+        if mi.large {
+            let group = mi.group.as_deref().unwrap_or(mi.id.as_str());
+            let opted_in = db
+                .pointer(&format!("/settings/bundledOptIn/{group}"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !opted_in {
+                continue;
+            }
+        }
+
         let items = match db.get_mut("items").and_then(|v| v.as_array_mut()) {
             Some(items) => items,
             None => continue,
