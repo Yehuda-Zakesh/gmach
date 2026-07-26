@@ -518,19 +518,87 @@
       });
   }
 
-  function listenForBundledUpdates() {
-    // Only present in the desktop build (src-tauri/src/bundled.rs emits
-    // this after a successful background sync).
+  /* --- Bundled-software download progress -------------------------------- */
+
+  var downloads = Object.create(null); // id -> { name, downloaded, total, status }
+  var downloadsRoot = null;
+
+  function ensureDownloadsRoot() {
+    if (downloadsRoot && document.body.contains(downloadsRoot)) return downloadsRoot;
+    downloadsRoot = Dom.h('div.downloads-root', {
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-atomic': 'false',
+    });
+    document.body.appendChild(downloadsRoot);
+    return downloadsRoot;
+  }
+
+  function renderDownloads() {
+    var ids = Object.keys(downloads);
+    if (!ids.length) {
+      if (downloadsRoot && downloadsRoot.parentNode) {
+        downloadsRoot.parentNode.removeChild(downloadsRoot);
+        downloadsRoot = null;
+      }
+      return;
+    }
+
+    var root = ensureDownloadsRoot();
+    Dom.clear(root);
+
+    ids.forEach(function (id) {
+      var d = downloads[id];
+      var pct = d.total ? Math.min(100, Math.round((d.downloaded / d.total) * 100)) : 0;
+      var meta = d.total
+        ? Utils.formatSize(d.downloaded) + ' מתוך ' + Utils.formatSize(d.total) + ' (' + pct + '%)'
+        : Utils.formatSize(d.downloaded) + ' הורדו…';
+
+      root.appendChild(
+        Dom.h('div.download-card', {}, [
+          Dom.h('div.download-card__name', { text: 'מוריד: ' + d.name }),
+          Dom.h('div.download-card__track', {}, [
+            Dom.h('div.download-card__fill' + (d.total ? '' : '.is-indeterminate'), {
+              style: d.total ? { width: pct + '%' } : {},
+            }),
+          ]),
+          Dom.h('div.download-card__meta', { text: meta }),
+        ])
+      );
+    });
+  }
+
+  function listenForDownloadStatus() {
+    // Only present in the desktop build (src-tauri/src/bundled.rs streams
+    // this while a bundled-software file is downloading).
     if (!window.__TAURI__ || !window.__TAURI__.event) return;
 
-    window.__TAURI__.event.listen('bundled-updates-applied', function (event) {
-      var payload = event.payload || {};
-      var count = (payload.added || 0) + (payload.updated || 0);
-      if (!count) return;
+    window.__TAURI__.event.listen('bundled-download-status', function (event) {
+      var p = event.payload || {};
+      if (!p.id) return;
 
-      refreshFromDisk();
-      Toast.success('הספרייה עודכנה — נוספו או עודכנו ' + count + ' תוכנות.', 5000);
+      if (p.status === 'started' || p.status === 'progress') {
+        downloads[p.id] = { name: p.name, downloaded: p.downloaded || 0, total: p.total || 0 };
+        renderDownloads();
+        return;
+      }
+
+      // 'done' or 'error' — either way, this item is no longer in flight.
+      delete downloads[p.id];
+      renderDownloads();
+
+      if (p.status === 'done') {
+        refreshFromDisk();
+        Toast.success(
+          (p.added ? 'נוספה תוכנה חדשה: ' : 'עודכנה תוכנה: ') + p.name,
+          5000
+        );
+      }
     });
+  }
+
+  function listenForBundledUpdates() {
+    listenForDownloadStatus();
   }
 
   if (document.readyState === 'loading') {

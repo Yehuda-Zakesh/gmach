@@ -67,9 +67,16 @@ struct Manifest {
 }
 
 #[derive(Clone, serde::Serialize)]
-struct BundledUpdateEvent {
-    added: usize,
-    updated: usize,
+#[serde(rename_all = "camelCase")]
+struct DownloadStatusEvent {
+    id: String,
+    name: String,
+    status: &'static str, // "started" | "progress" | "done" | "error"
+    downloaded: u64,
+    total: Option<u64>,
+    /// Only meaningful when status == "done": true for a brand-new catalog
+    /// entry, false for a version update to an existing one.
+    added: Option<bool>,
 }
 
 /// Fire-and-forget: spawned once from main.rs's `setup()`, after the main
@@ -158,17 +165,28 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             continue;
         }
 
+        let dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
+        let is_new = existing_idx.is_none();
+
         // A failed download for one item must never abort the rest of the
         // catalog sync — skip it and try again on the next launch.
-        let bytes = match fetch_bytes(&client, &mi.download_url).await {
-            Some(b) => b,
-            None => continue,
+        let size = match download_with_progress(app, &client, mi, &dest).await {
+            Ok(size) => size,
+            Err(_) => {
+                let _ = app.emit(
+                    "bundled-download-status",
+                    DownloadStatusEvent {
+                        id: mi.id.clone(),
+                        name: mi.name.clone(),
+                        status: "error",
+                        downloaded: 0,
+                        total: None,
+                        added: None,
+                    },
+                );
+                continue;
+            }
         };
-
-        let dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
-        if fs::write(&dest, &bytes).is_err() {
-            continue;
-        }
 
         let file_name = dest
             .file_name()
@@ -177,10 +195,6 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             .to_string();
         let rel_path = format!("software/bundled/{file_name}");
         let now = now_iso();
-        let size = bytes.len() as u64;
-        drop(bytes); // large buffer no longer needed once written to disk
-
-        let mut event = BundledUpdateEvent { added: 0, updated: 0 };
 
         if let Some(i) = existing_idx {
             let item = &mut items[i];
@@ -201,7 +215,6 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             item["extra"]["bundledId"] = json!(mi.id);
             item["extra"]["bundledVersion"] = json!(mi.version);
             item["source"] = json!("bundled");
-            event.updated = 1;
         } else {
             items.push(json!({
                 "id": format!("bundled-{}", mi.id),
@@ -230,7 +243,6 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                 "source": "bundled",
                 "extra": { "bundledId": mi.id, "bundledVersion": mi.version }
             }));
-            event.added = 1;
         }
 
         // Persisted and announced the moment THIS item is ready — a 30MB
@@ -238,16 +250,90 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         // downloads still in flight.
         let text = serde_json::to_string_pretty(&db).map_err(|e| e.to_string())?;
         fs::write(&db_path, text).map_err(|e| e.to_string())?;
-        let _ = app.emit("bundled-updates-applied", event);
+        let _ = app.emit(
+            "bundled-download-status",
+            DownloadStatusEvent {
+                id: mi.id.clone(),
+                name: mi.name.clone(),
+                status: "done",
+                downloaded: size,
+                total: Some(size),
+                added: Some(is_new),
+            },
+        );
     }
 
     Ok(())
 }
 
-async fn fetch_bytes(client: &reqwest::Client, url: &str) -> Option<bytes::Bytes> {
-    let resp = client.get(url).send().await.ok()?;
-    let resp = resp.error_for_status().ok()?;
-    resp.bytes().await.ok()
+/// Streams one item to disk (never buffers the whole file in memory — some
+/// of these are multi-gigabyte), emitting "started" once and "progress"
+/// periodically along the way via `bundled-download-status` so the UI can
+/// show something moving instead of a long silent wait.
+async fn download_with_progress(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    mi: &ManifestItem,
+    dest: &Path,
+) -> Result<u64, String> {
+    use futures_util::StreamExt;
+    use tokio::io::AsyncWriteExt;
+
+    let resp = client
+        .get(&mi.download_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?;
+    let total = resp.content_length();
+
+    let _ = app.emit(
+        "bundled-download-status",
+        DownloadStatusEvent {
+            id: mi.id.clone(),
+            name: mi.name.clone(),
+            status: "started",
+            downloaded: 0,
+            total,
+            added: None,
+        },
+    );
+
+    let mut file = tokio::fs::File::create(dest)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut stream = resp.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let mut last_emit = std::time::Instant::now();
+    // Emit at most a few times a second — frequent enough to look alive,
+    // rare enough not to flood the UI thread on a fast connection.
+    let emit_every = Duration::from_millis(250);
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+
+        if last_emit.elapsed() >= emit_every {
+            let _ = app.emit(
+                "bundled-download-status",
+                DownloadStatusEvent {
+                    id: mi.id.clone(),
+                    name: mi.name.clone(),
+                    status: "progress",
+                    downloaded,
+                    total,
+                    added: None,
+                },
+            );
+            last_emit = std::time::Instant::now();
+        }
+    }
+
+    file.flush().await.map_err(|e| e.to_string())?;
+    Ok(downloaded)
 }
 
 /// Strips path separators out of a manifest-supplied file name so a
