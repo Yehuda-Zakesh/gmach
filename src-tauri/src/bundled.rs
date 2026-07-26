@@ -77,6 +77,16 @@ struct DownloadStatusEvent {
     /// Only meaningful when status == "done": true for a brand-new catalog
     /// entry, false for a version update to an existing one.
     added: Option<bool>,
+    /// Optional human-readable error detail for "error" events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncStatusEvent {
+    status: &'static str, // "started" | "done" | "error"
+    message: Option<String>,
 }
 
 /// Fire-and-forget: spawned once from main.rs's `setup()`, after the main
@@ -87,6 +97,13 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
     tauri::async_runtime::spawn(async move {
         loop {
             if let Err(e) = sync(&app, &data_root).await {
+                let _ = app.emit(
+                    "bundled-sync-status",
+                    SyncStatusEvent {
+                        status: "error",
+                        message: Some(e.clone()),
+                    },
+                );
                 #[cfg(debug_assertions)]
                 eprintln!("bundled sync skipped: {e}");
                 #[cfg(not(debug_assertions))]
@@ -99,6 +116,14 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
 }
 
 async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
+    let _ = app.emit(
+        "bundled-sync-status",
+        SyncStatusEvent {
+            status: "started",
+            message: None,
+        },
+    );
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
         .redirect(reqwest::redirect::Policy::limited(10))
@@ -159,33 +184,28 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let final_dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
-        let temp_dest = final_dest.with_extension("part");
+        let dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
+        let temp_dest = dest.with_extension("part");
+        let is_new = existing_idx.is_none();
 
-        let file_exists_and_valid = final_dest.exists()
-            && fs::metadata(&final_dest)
-                .map(|m| m.len() > 0)
-                .unwrap_or(false);
+        let file_exists_and_valid = dest.exists()
+            && fs::metadata(&dest).map(|m| m.len() > 0).unwrap_or(false);
 
-        // If the item is already at the published version AND the file exists,
-        // there is nothing to do. If the DB says it's current but the file is
+        // Already at the published version and the file is present — nothing
+        // to download or write. If the DB says it's current but the file is
         // missing or empty, we re-download it.
         if existing_idx.is_some() && current_version == mi.version && file_exists_and_valid {
             continue;
         }
 
-        let is_new = existing_idx.is_none();
-
-        // Clean up any stale partial download before starting a new one.
         let _ = fs::remove_file(&temp_dest);
 
+        // A failed download for one item must never abort the rest of the
+        // catalog sync — skip it and try again on the next launch.
         let size = match download_with_progress(app, &client, mi, &temp_dest).await {
             Ok(size) => size,
             Err(err) => {
                 let _ = fs::remove_file(&temp_dest);
-                #[cfg(debug_assertions)]
-                eprintln!("bundled download failed for {}: {}", mi.id, err);
-
                 let _ = app.emit(
                     "bundled-download-status",
                     DownloadStatusEvent {
@@ -195,23 +215,24 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                         downloaded: 0,
                         total: None,
                         added: None,
+                        message: None,
                     },
                 );
+                #[cfg(debug_assertions)]
+                eprintln!("bundled download failed for {}: {}", mi.id, err);
                 continue;
             }
         };
 
-        // Replace the destination atomically-ish: if rename fails because the
-        // file is locked or already exists, try removing the old file first.
-        if let Err(e) = fs::rename(&temp_dest, &final_dest) {
-            let _ = fs::remove_file(&final_dest);
-            fs::rename(&temp_dest, &final_dest).map_err(|e2| {
+        if let Err(e) = fs::rename(&temp_dest, &dest) {
+            let _ = fs::remove_file(&dest);
+            fs::rename(&temp_dest, &dest).map_err(|e2| {
                 let _ = fs::remove_file(&temp_dest);
                 format!("rename failed: {}; retry failed: {}", e, e2)
             })?;
         }
 
-        let file_name = final_dest
+        let file_name = dest
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or(&mi.file_name)
@@ -282,9 +303,18 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
                 downloaded: size,
                 total: Some(size),
                 added: Some(is_new),
+            message: None,
             },
         );
     }
+
+    let _ = app.emit(
+        "bundled-sync-status",
+        SyncStatusEvent {
+            status: "done",
+            message: None,
+        },
+    );
 
     Ok(())
 }
@@ -302,6 +332,19 @@ async fn download_with_progress(
     use futures_util::StreamExt;
     use tokio::io::AsyncWriteExt;
 
+    let _ = app.emit(
+        "bundled-download-status",
+        DownloadStatusEvent {
+            id: mi.id.clone(),
+            name: mi.name.clone(),
+            status: "started",
+            downloaded: 0,
+            total: None,
+            added: None,
+                        message: None,
+        },
+    );
+
     let resp = client
         .get(&mi.download_url)
         .send()
@@ -310,18 +353,6 @@ async fn download_with_progress(
         .error_for_status()
         .map_err(|e| e.to_string())?;
     let total = resp.content_length();
-
-    let _ = app.emit(
-        "bundled-download-status",
-        DownloadStatusEvent {
-            id: mi.id.clone(),
-            name: mi.name.clone(),
-            status: "started",
-            downloaded: 0,
-            total,
-            added: None,
-        },
-    );
 
     let mut file = tokio::fs::File::create(dest)
         .await
@@ -349,6 +380,7 @@ async fn download_with_progress(
                     downloaded,
                     total,
                     added: None,
+                        message: None,
                 },
             );
             last_emit = std::time::Instant::now();

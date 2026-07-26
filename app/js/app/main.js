@@ -448,6 +448,10 @@
     cacheElements();
     Theme.init('auto');
     bindEvents();
+    if (el.loading) {
+      el.loading.textContent = 'מכין את רשימת ההורדות…';
+      Dom.setHidden(el.loading, false);
+    }
 
     Db.load()
       .then(function (result) {
@@ -494,11 +498,41 @@
    * inside the bundled frontend assets, so reload() would just replay the
    * same stale snapshot.
    */
+  function getTauri() {
+    if (window.__TAURI__) return window.__TAURI__;
+    if (window.__TAURI_INTERNALS__) return window.__TAURI_INTERNALS__;
+    return null;
+  }
+
+  function tauriInvoke(command) {
+    var api = getTauri();
+    if (!api) return Promise.reject(new Error('Tauri API not available'));
+
+    if (api.core && typeof api.core.invoke === 'function') {
+      return api.core.invoke(command);
+    }
+    if (api.tauri && typeof api.tauri.invoke === 'function') {
+      return api.tauri.invoke(command);
+    }
+    if (typeof api.invoke === 'function') {
+      return api.invoke(command);
+    }
+
+    return Promise.reject(new Error('invoke API not available'));
+  }
+
+  function tauriListen(eventName, handler) {
+    var api = getTauri();
+    if (!api || !api.event || typeof api.event.listen !== 'function') {
+      return Promise.reject(new Error('event API not available'));
+    }
+    return api.event.listen(eventName, handler);
+  }
+
   function refreshFromDisk() {
     if (!window.__TAURI__ || !window.__TAURI__.core) return;
 
-    window.__TAURI__.core
-      .invoke('read_database')
+    tauriInvoke('read_database')
       .then(function (json) {
         var normalized = Schema.normalizeDatabase(JSON.parse(json));
         Schema.refreshNewFlags(normalized.db);
@@ -522,6 +556,8 @@
 
   var downloads = Object.create(null); // id -> { name, downloaded, total, status }
   var downloadsRoot = null;
+  var downloadStatusListening = false;
+  var syncStatusListening = false;
 
   function ensureDownloadsRoot() {
     if (downloadsRoot && document.body.contains(downloadsRoot)) return downloadsRoot;
@@ -550,7 +586,9 @@
     ids.forEach(function (id) {
       var d = downloads[id];
       var pct = d.total ? Math.min(100, Math.round((d.downloaded / d.total) * 100)) : 0;
-      var meta = d.total
+      var meta = d.status === 'error'
+        ? (d.message || 'ההורדה נכשלה')
+        : d.total
         ? Utils.formatSize(d.downloaded) + ' מתוך ' + Utils.formatSize(d.total) + ' (' + pct + '%)'
         : Utils.formatSize(d.downloaded) + ' הורדו…';
 
@@ -571,33 +609,79 @@
   function listenForDownloadStatus() {
     // Only present in the desktop build (src-tauri/src/bundled.rs streams
     // this while a bundled-software file is downloading).
-    if (!window.__TAURI__ || !window.__TAURI__.event) return;
+    if (downloadStatusListening) return;
+    if (!getTauri() || !getTauri().event || typeof getTauri().event.listen !== 'function') {
+      setTimeout(listenForDownloadStatus, 250);
+      return;
+    }
 
-    window.__TAURI__.event.listen('bundled-download-status', function (event) {
+    downloadStatusListening = true;
+    tauriListen('bundled-download-status', function (event) {
       var p = event.payload || {};
       if (!p.id) return;
 
       if (p.status === 'started' || p.status === 'progress') {
-        downloads[p.id] = { name: p.name, downloaded: p.downloaded || 0, total: p.total || 0 };
+        downloads[p.id] = {
+          name: p.name,
+          downloaded: p.downloaded || 0,
+          total: p.total || 0,
+          status: p.status,
+        };
         renderDownloads();
         return;
       }
 
-      // 'done' or 'error' — either way, this item is no longer in flight.
+      if (p.status === 'error') {
+        downloads[p.id] = {
+          name: p.name,
+          downloaded: 0,
+          total: 0,
+          status: 'error',
+          message: p.message || 'ההורדה נכשלה',
+        };
+        renderDownloads();
+        Toast.error((p.name ? 'נכשל בהורדה: ' + p.name : 'ההורדה נכשלה') + (p.message ? ' — ' + p.message : ''), 7000);
+        setTimeout(function () {
+          delete downloads[p.id];
+          renderDownloads();
+        }, 8000);
+        return;
+      }
+
+      // done — remove the progress card, then refresh the catalog from disk.
       delete downloads[p.id];
       renderDownloads();
 
-      if (p.status === 'done') {
-        refreshFromDisk();
-        Toast.success(
-          (p.added ? 'נוספה תוכנה חדשה: ' : 'עודכנה תוכנה: ') + p.name,
-          5000
+      refreshFromDisk();
+      Toast.success((p.added ? 'נוספה תוכנה חדשה: ' : 'עודכנה תוכנה: ') + p.name, 5000);
+    });
+  }
+
+  function listenForSyncStatus() {
+    if (syncStatusListening) return;
+    if (!getTauri() || !getTauri().event || typeof getTauri().event.listen !== 'function') {
+      setTimeout(listenForSyncStatus, 250);
+      return;
+    }
+
+    syncStatusListening = true;
+    tauriListen('bundled-sync-status', function (event) {
+      var p = event.payload || {};
+      if (p.status === 'started') {
+        Toast.info('בודק אם יש תוכנות חדשות להורדה…', 3000);
+        return;
+      }
+      if (p.status === 'error') {
+        Toast.warn(
+          'בדיקת ההורדה האוטומטית נכשלה' + (p.message ? ' — ' + p.message : ''),
+          7000
         );
       }
     });
   }
 
   function listenForBundledUpdates() {
+    listenForSyncStatus();
     listenForDownloadStatus();
   }
 
