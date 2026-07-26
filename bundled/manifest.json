@@ -4,32 +4,32 @@
     {
       "id": "otzaria-windows-installer",
       "name": "אוצריא — התקנה רגילה",
-      "version": "0.9.93+674",
+      "version": "0.9.95+699",
       "description": "עדכון תוכנת אוצריא בלבד, ללא מאגר הספרים. מתאים למי שכבר מותקן אצלו אוצריא ורוצה לעדכן גרסה.",
       "category": "אוצריא",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך.",
-      "fileName": "otzaria-0.9.93-windows.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.93+674/otzaria-0.9.93-windows.exe"
+      "fileName": "otzaria-0.9.95-windows.exe",
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows.exe"
     },
     {
       "id": "otzaria-windows-full",
       "name": "אוצריא — גרסה מלאה (כולל מאגר הספרים)",
-      "version": "0.9.93+674",
+      "version": "0.9.95+699",
       "description": "חבילה מלאה הכוללת את תוכנת אוצריא יחד עם כל מאגר הספרים — מתאימה להתקנה ראשונית ללא צורך בחיבור לרשת לאחר ההורדה.",
       "category": "אוצריא",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך. קובץ גדול — ההורדה עשויה לקחת זמן.",
-      "fileName": "otzaria-0.9.93-windows-full.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.93+674/otzaria-0.9.93-windows-full.exe"
+      "fileName": "otzaria-0.9.95-windows-full.exe",
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe"
     },
     {
       "id": "otzaria-windows-portable",
       "name": "אוצריא — גרסה ניידת (ZIP)",
-      "version": "0.9.93+674",
+      "version": "0.9.95+699",
       "description": "גרסה ניידת של אוצריא — חילוץ תיקייה והרצה ישירה, ללא התקנה במחשב.",
       "category": "אוצריא",
       "instructions": "יש לחלץ את קובץ ה-ZIP לתיקייה ולהריץ את קובץ ההרצה מתוכה.",
       "fileName": "otzaria-windows.zip",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.93+674/otzaria-windows.zip"
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-windows.zip"
     },
     {
       "id": "zayit-windows",
