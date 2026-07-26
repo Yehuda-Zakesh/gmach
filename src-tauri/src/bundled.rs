@@ -24,6 +24,14 @@ const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/Yehuda-Zakesh/gmach/main/bundled/manifest.json";
 const REQUEST_TIMEOUT_SECS: u64 = 15;
 
+/// How often to re-check for updates while the app stays open. A launch
+/// with no connection yet, or a connection that only appears later in a
+/// long-running session, still gets picked up without needing a restart —
+/// there's no reliable cross-platform "network just came back" OS event
+/// worth wiring up here, so a modest poll interval does the same job with
+/// far less complexity.
+const RECHECK_INTERVAL_SECS: u64 = 60 * 60; // 1 hour
+
 #[derive(Debug, Deserialize)]
 struct ManifestItem {
     id: String,
@@ -55,17 +63,22 @@ struct BundledUpdateEvent {
 
 /// Fire-and-forget: spawned once from main.rs's `setup()`, after the main
 /// window is already built and visible, so a slow or absent connection never
-/// delays the app opening.
+/// delays the app opening. Checks immediately, then keeps checking every
+/// `RECHECK_INTERVAL_SECS` for as long as the app stays open.
 pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = sync(&app, &data_root).await {
-            // Deliberately quiet: no network, a GitHub hiccup, or a
-            // malformed manifest are all routine and must never interrupt
-            // an otherwise-offline app. Visible only in a dev console.
-            #[cfg(debug_assertions)]
-            eprintln!("bundled sync skipped: {e}");
-            #[cfg(not(debug_assertions))]
-            let _ = e;
+        loop {
+            if let Err(e) = sync(&app, &data_root).await {
+                // Deliberately quiet: no network, a GitHub hiccup, or a
+                // malformed manifest are all routine and must never interrupt
+                // an otherwise-offline app. Visible only in a dev console.
+                #[cfg(debug_assertions)]
+                eprintln!("bundled sync skipped: {e}");
+                #[cfg(not(debug_assertions))]
+                let _ = e;
+            }
+
+            tokio::time::sleep(Duration::from_secs(RECHECK_INTERVAL_SECS)).await;
         }
     });
 }
