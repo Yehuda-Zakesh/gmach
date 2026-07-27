@@ -9,6 +9,13 @@
 //! an item the admin didn't ask this module to manage (matched strictly by
 //! extra.bundledId, never by name or path).
 //!
+//! One deliberate exception to "never surface anything to the user": before
+//! downloading anything, if there's at least one new/updated item pending,
+//! this module shows a native confirm dialog asking whether to download now
+//! — see confirm_download(). Declining just skips this sync round (nothing
+//! downloads); the same prompt reappears on the next recheck interval as
+//! long as something is still pending.
+//!
 //! See /bundled/README.md at the repo root for how the manifest is
 //! maintained and what each field means.
 
@@ -19,6 +26,7 @@ use std::time::Duration;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_dialog::DialogExt;
 
 const MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/Yehuda-Zakesh/gmach/main/bundled/manifest.json";
@@ -140,6 +148,85 @@ pub fn spawn_sync(app: AppHandle, data_root: PathBuf) {
     });
 }
 
+/// True if `mi` needs to be downloaded — mirrors the skip logic in the main
+/// download loop exactly (same large/opt-in check, same version+file-present
+/// check), so the pre-check pass (used to build the confirm-dialog message)
+/// and the actual download loop never disagree about what's pending.
+fn is_pending(mi: &ManifestItem, db: &Value, bundled_dir: &Path) -> bool {
+    if mi.large {
+        let group = mi.group.as_deref().unwrap_or(mi.id.as_str());
+        let opted_in = db
+            .pointer(&format!("/settings/bundledOptIn/{group}"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if !opted_in {
+            return false;
+        }
+    }
+
+    let items = match db.get("items").and_then(|v| v.as_array()) {
+        Some(items) => items,
+        None => return false,
+    };
+
+    let existing = items
+        .iter()
+        .find(|it| it.pointer("/extra/bundledId").and_then(|v| v.as_str()) == Some(mi.id.as_str()));
+
+    let current_version = existing
+        .and_then(|it| it.pointer("/extra/bundledVersion"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let dest = bundled_dir.join(sanitize_file_name(&mi.file_name));
+    let file_exists_and_valid =
+        dest.exists() && fs::metadata(&dest).map(|m| m.len() > 0).unwrap_or(false);
+
+    !(existing.is_some() && current_version == mi.version && file_exists_and_valid)
+}
+
+/// Shows a native "software is available — download now?" confirmation and
+/// resolves with the user's answer. Bridges tauri-plugin-dialog's
+/// callback-based `show()` into async/await via a oneshot channel — using
+/// `blocking_show()` here would freeze this task's worker thread, and there
+/// is no `async fn` variant in this plugin version.
+async fn confirm_download(app: &AppHandle, names: &[String]) -> bool {
+    use tauri_plugin_dialog::{MessageDialogButtons, MessageDialogKind};
+
+    let list = if names.len() > 6 {
+        format!(
+            "{}\n… ועוד {} תוכנות",
+            names[..6].join("\n"),
+            names.len() - 6
+        )
+    } else {
+        names.join("\n")
+    };
+    let message = format!("יש תוכנות זמינות להורדה:\n\n{list}\n\nהאם להוריד עכשיו?");
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+    let tx = std::sync::Mutex::new(Some(tx));
+    app.dialog()
+        .message(message)
+        .title("עדכון ספריית התוכנות")
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "כן, הורד".into(),
+            "לא עכשיו".into(),
+        ))
+        .show(move |confirmed| {
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(confirmed);
+            }
+        });
+
+    // If the dialog channel is ever dropped without answering (window closed
+    // mid-prompt, plugin error), default to *not* downloading — silent
+    // background downloads without the user's OK is exactly what this
+    // feature exists to avoid.
+    rx.await.unwrap_or(false)
+}
+
 async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
     log_line(data_root, "sync: started, fetching manifest");
     let _ = app.emit(
@@ -198,6 +285,38 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
     fs::create_dir_all(&bundled_dir).map_err(|e| e.to_string())?;
 
     let db_path = data_root.join("database.json");
+
+    // Pre-check: is there anything to do at all this round? Read once — no
+    // download has touched the disk or the DB yet, so a single read is safe
+    // here (the main loop below still re-reads per item, since that loop can
+    // take a long time and run alongside admin edits).
+    {
+        let db_text = fs::read_to_string(&db_path).map_err(|e| e.to_string())?;
+        let db: Value = serde_json::from_str(&db_text).map_err(|e| e.to_string())?;
+        let pending_names: Vec<String> = manifest
+            .items
+            .iter()
+            .filter(|mi| is_pending(mi, &db, &bundled_dir))
+            .map(|mi| mi.name.clone())
+            .collect();
+
+        if pending_names.is_empty() {
+            log_line(data_root, "sync: nothing pending, nothing to ask");
+        } else {
+            log_line(
+                data_root,
+                &format!(
+                    "sync: {} item(s) pending, asking user for confirmation",
+                    pending_names.len()
+                ),
+            );
+            if !confirm_download(app, &pending_names).await {
+                log_line(data_root, "sync: user declined — skipping this round");
+                return Ok(());
+            }
+            log_line(data_root, "sync: user confirmed — proceeding to download");
+        }
+    }
 
     for mi in &manifest.items {
         // Re-read the database fresh for every item (not once up front) so a
