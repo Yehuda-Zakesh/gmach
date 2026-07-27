@@ -1,0 +1,42 @@
+name: Update bundled manifest
+
+on:
+  schedule:
+    # Every 6 hours. Cheap (a few API calls, no build) — fine to run often
+    # so users see new upstream releases show up quickly.
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check upstream releases and update manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/update-manifest.mjs
+
+      - name: Commit and push if changed
+        run: |
+          if [ ! -f .manifest-changed ]; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bundled/manifest.json
+          git commit -m "chore: auto-update bundled manifest versions" -F .manifest-changed || {
+            echo "Nothing staged (unexpected — .manifest-changed existed but no diff)."
+            exit 0
+          }
+          rm -f .manifest-changed
+          git push

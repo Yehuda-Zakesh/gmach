@@ -2,6 +2,10 @@
 src-tauri/target/
 src-tauri/Cargo.lock
 
+# scripts/update-manifest.mjs writes this only to signal the workflow that a
+# commit is needed — never meant to be committed itself.
+/.manifest-changed
+
 # OS / editor noise
 Thumbs.db
 ehthumbs.db

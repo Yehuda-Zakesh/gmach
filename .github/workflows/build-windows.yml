@@ -3,6 +3,15 @@ name: Build Windows exe
 on:
   push:
     branches: [main]
+    # manifest.json/sources.json are fetched live at runtime (see MANIFEST_URL
+    # in src-tauri/src/bundled.rs) — never baked into the exe, so a change to
+    # them (including the hourly automated update in update-manifest.yml)
+    # must not trigger a ~10-minute Windows Rust build for nothing.
+    paths-ignore:
+      - "bundled/manifest.json"
+      - "bundled/sources.json"
+      - "scripts/update-manifest.mjs"
+      - ".github/workflows/update-manifest.yml"
   workflow_dispatch: {}
 
 jobs:

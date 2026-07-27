@@ -9,7 +9,7 @@
       "category": "אוצריא",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך.",
       "fileName": "otzaria-0.9.95-windows.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows.exe"
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95%2B699/otzaria-0.9.95-windows.exe"
     },
     {
       "id": "otzaria-windows-portable",
@@ -19,22 +19,22 @@
       "category": "אוצריא",
       "instructions": "יש לחלץ את קובץ ה-ZIP לתיקייה ולהריץ את קובץ ההרצה מתוכה.",
       "fileName": "otzaria-windows.zip",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-windows.zip"
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95%2B699/otzaria-windows.zip"
     },
     {
       "id": "kleikodesh-windows",
       "name": "כלי קודש",
-      "version": "8.7.2",
+      "version": "v8.7.2",
       "description": "כלי עזר ללימוד ולעיון בספרי קודש.",
       "category": "כלי קודש",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך.",
-      "fileName": "KleiKodeshSetup-v8.7.2.exe",
-      "downloadUrl": "https://github.com/KleiKodesh/KleiKodeshProject/releases/download/v8.7.2/KleiKodeshSetup-v8.7.2.exe"
+      "fileName": "KleiKodeshSetup-v8.7.2-x64.exe",
+      "downloadUrl": "https://github.com/KleiKodesh/KleiKodeshProject/releases/download/v8.7.2/KleiKodeshSetup-v8.7.2-x64.exe"
     },
     {
       "id": "zayit-windows",
       "name": "זית (Zayit)",
-      "version": "0.5.17",
+      "version": "v0.5.17",
       "description": "אפליקציה לעיון, חיפוש ולימוד בספרי קודש.",
       "category": "זית",
       "instructions": "יש להריץ את קובץ ההתקנה. לאחר ההתקנה נדרש גם מסד הנתונים (שני החלקים המופיעים בקטגוריה זו) כדי שהאפליקציה תעבוד.",
@@ -61,7 +61,7 @@
       "category": "אוצריא",
       "instructions": "יש להריץ את קובץ ההתקנה ולעקוב אחר ההוראות על המסך. קובץ גדול — ההורדה עשויה לקחת זמן.",
       "fileName": "otzaria-0.9.95-windows-full.exe",
-      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95+699/otzaria-0.9.95-windows-full.exe",
+      "downloadUrl": "https://github.com/Otzaria/otzaria/releases/download/0.9.95%2B699/otzaria-0.9.95-windows-full.exe",
       "large": true,
       "group": "otzaria-full"
     },

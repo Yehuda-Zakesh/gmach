@@ -1,0 +1,33 @@
+{
+  "_comment": "Used only by scripts/update-manifest.mjs — never read by the app itself (the app only reads manifest.json). For each source repo: which release to use (latest stable, or including prereleases), and for each manifest item id it feeds, a regex to pick the right asset out of that release by its real file name. This avoids having to guess/template exact file names per project — we just take whatever the API actually returns.",
+  "sources": [
+    {
+      "repo": "Otzaria/otzaria",
+      "includePrerelease": true,
+      "items": [
+        { "id": "otzaria-windows-installer", "assetPattern": "^otzaria-.*-windows\\.exe$" },
+        { "id": "otzaria-windows-portable", "assetPattern": "^otzaria-windows\\.zip$" },
+        { "id": "otzaria-windows-full", "assetPattern": "^otzaria-.*-windows-full\\.exe$" }
+      ]
+    },
+    {
+      "repo": "KleiKodesh/KleiKodeshProject",
+      "items": [
+        { "id": "kleikodesh-windows", "assetPattern": "^KleiKodeshSetup-.*x64\\.exe$" }
+      ]
+    },
+    {
+      "repo": "kdroidFilter/Zayit",
+      "items": [
+        { "id": "zayit-windows", "assetPattern": "^Zayit-.*-windows-x64\\.exe$" }
+      ]
+    },
+    {
+      "repo": "kdroidFilter/SeforimLibrary",
+      "items": [
+        { "id": "zayit-seforim-db-part1", "assetPattern": "^seforim_bundle\\.tar\\.zst\\.part01$" },
+        { "id": "zayit-seforim-db-part2", "assetPattern": "^seforim_bundle\\.tar\\.zst\\.part02$" }
+      ]
+    }
+  ]
+}
