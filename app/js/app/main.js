@@ -556,6 +556,7 @@
 
   var downloads = Object.create(null); // id -> { name, downloaded, total, status }
   var downloadsRoot = null;
+  var downloadCards = Object.create(null); // id -> { root, fillEl, metaEl }
   var downloadStatusListening = false;
   var syncStatusListening = false;
 
@@ -577,12 +578,25 @@
         downloadsRoot.parentNode.removeChild(downloadsRoot);
         downloadsRoot = null;
       }
+      downloadCards = Object.create(null);
       return;
     }
 
     var root = ensureDownloadsRoot();
-    Dom.clear(root);
 
+    // Remove cards for ids that are no longer downloading.
+    Object.keys(downloadCards).forEach(function (id) {
+      if (downloads[id]) return;
+      var card = downloadCards[id];
+      if (card.root.parentNode) card.root.parentNode.removeChild(card.root);
+      delete downloadCards[id];
+    });
+
+    // Update existing cards in place, and only create a new DOM node the
+    // first time an id appears — reusing the node (instead of tearing it
+    // down and rebuilding it on every progress event) is what stops the
+    // card from flickering/re-triggering its entrance animation every
+    // ~250ms while a download is in progress.
     ids.forEach(function (id) {
       var d = downloads[id];
       var pct = d.total ? Math.min(100, Math.round((d.downloaded / d.total) * 100)) : 0;
@@ -592,17 +606,25 @@
         ? Utils.formatSize(d.downloaded) + ' מתוך ' + Utils.formatSize(d.total) + ' (' + pct + '%)'
         : Utils.formatSize(d.downloaded) + ' הורדו…';
 
-      root.appendChild(
-        Dom.h('div.download-card', {}, [
-          Dom.h('div.download-card__name', { text: 'מוריד: ' + d.name }),
-          Dom.h('div.download-card__track', {}, [
-            Dom.h('div.download-card__fill' + (d.total ? '' : '.is-indeterminate'), {
-              style: d.total ? { width: pct + '%' } : {},
-            }),
-          ]),
-          Dom.h('div.download-card__meta', { text: meta }),
-        ])
-      );
+      var card = downloadCards[id];
+      if (!card) {
+        var nameEl = Dom.h('div.download-card__name');
+        var fillEl = Dom.h('div.download-card__fill');
+        var metaEl = Dom.h('div.download-card__meta');
+        var rootEl = Dom.h('div.download-card', {}, [
+          nameEl,
+          Dom.h('div.download-card__track', {}, [fillEl]),
+          metaEl,
+        ]);
+        card = { root: rootEl, nameEl: nameEl, fillEl: fillEl, metaEl: metaEl };
+        downloadCards[id] = card;
+        root.appendChild(rootEl);
+      }
+
+      card.nameEl.textContent = 'מוריד: ' + d.name;
+      card.metaEl.textContent = meta;
+      card.fillEl.classList.toggle('is-indeterminate', !d.total);
+      card.fillEl.style.width = d.total ? pct + '%' : '';
     });
   }
 

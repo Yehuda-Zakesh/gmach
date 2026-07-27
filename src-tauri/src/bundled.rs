@@ -150,14 +150,27 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         },
     );
 
+    // חשוב: אין כאן `.timeout()` על ה-client כולו. זו הייתה הסיבה האמיתית
+    // לכשלונות ה"error decoding response body"/IncompleteMessage בקבצים
+    // הגדולים — `.timeout()` על ה-builder חל על הבקשה *כולה*, כולל זמן
+    // הזרימה של הגוף, ולא רק על ההתחברות. קובץ שלוקח יותר מ-30 שניות
+    // להוריד (כל הקבצים הכבדים) נחתך באמצע. `.connect_timeout` חל רק על
+    // שלב ההתחברות (DNS+TCP+TLS) — מהיר לזהות רשת תקועה, בלי לפגוע בהורדה
+    // ארוכה שכן מקבלת בייטים בקצב תקין.
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .connect_timeout(Duration::from_secs(20))
         .redirect(reqwest::redirect::Policy::limited(10))
         .user_agent("Gmach/1.0.0 bundled-sync")
         .build()
         .map_err(|e| e.to_string())?;
 
-    let manifest_resp = client.get(MANIFEST_URL).send().await;
+    // ל-manifest.json (קובץ קטן) יש טעם לתקציב זמן קשיח על הבקשה כולה —
+    // זה נקבע כאן per-request (לא ב-client), כדי שלא ישפיע על ההורדות.
+    let manifest_resp = client
+        .get(MANIFEST_URL)
+        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .send()
+        .await;
     let manifest_resp = match manifest_resp {
         Ok(r) => r,
         Err(e) => {
@@ -417,9 +430,26 @@ async fn download_with_progress(
     // Emit at most a few times a second — frequent enough to look alive,
     // rare enough not to flood the UI thread on a fast connection.
     let emit_every = Duration::from_millis(250);
+    // No overall time limit on the download (some of these are multi-
+    // gigabyte and a slow-but-alive connection must be allowed to finish).
+    // Instead, a *stall* timeout: if no new bytes arrive at all for this
+    // long, the connection is genuinely dead and we give up.
+    let stall_timeout = Duration::from_secs(60);
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| e.to_string())?;
+    loop {
+        let next = match tokio::time::timeout(stall_timeout, stream.next()).await {
+            Ok(next) => next,
+            Err(_) => {
+                return Err(format!(
+                    "no data received for {}s — connection appears stalled",
+                    stall_timeout.as_secs()
+                ));
+            }
+        };
+        let chunk = match next {
+            Some(chunk) => chunk.map_err(|e| e.to_string())?,
+            None => break,
+        };
         file.write_all(&chunk).await.map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
 
