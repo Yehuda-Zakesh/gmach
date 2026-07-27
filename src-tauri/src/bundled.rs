@@ -157,11 +157,15 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
 
-    let manifest: Manifest = client
-        .get(MANIFEST_URL)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
+    let manifest_resp = client.get(MANIFEST_URL).send().await;
+    let manifest_resp = match manifest_resp {
+        Ok(r) => r,
+        Err(e) => {
+            log_line(data_root, &format!("sync: manifest fetch FAILED, root cause: {e:?}"));
+            return Err(e.to_string());
+        }
+    };
+    let manifest: Manifest = manifest_resp
         .error_for_status()
         .map_err(|e| e.to_string())?
         .json()
@@ -243,7 +247,7 @@ async fn sync(app: &AppHandle, data_root: &Path) -> Result<(), String> {
 
         // A failed download for one item must never abort the rest of the
         // catalog sync — skip it and try again on the next launch.
-        let size = match download_with_progress(app, &client, mi, &temp_dest).await {
+        let size = match download_with_progress(app, &client, mi, &temp_dest, data_root).await {
             Ok(size) => size,
             Err(err) => {
                 log_line(data_root, &format!("{}: download FAILED: {}", mi.id, err));
@@ -372,6 +376,7 @@ async fn download_with_progress(
     client: &reqwest::Client,
     mi: &ManifestItem,
     dest: &Path,
+    data_root: &Path,
 ) -> Result<u64, String> {
     use futures_util::StreamExt;
     use tokio::io::AsyncWriteExt;
@@ -389,13 +394,17 @@ async fn download_with_progress(
         },
     );
 
-    let resp = client
-        .get(&mi.download_url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .error_for_status()
-        .map_err(|e| e.to_string())?;
+    let resp = match client.get(&mi.download_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            log_line(
+                data_root,
+                &format!("{}: request FAILED, root cause: {e:?}", mi.id),
+            );
+            return Err(e.to_string());
+        }
+    };
+    let resp = resp.error_for_status().map_err(|e| e.to_string())?;
     let total = resp.content_length();
 
     let mut file = tokio::fs::File::create(dest)
