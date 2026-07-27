@@ -42,6 +42,21 @@
     return Paths.normalize(p).toLowerCase();
   }
 
+  /**
+   * `software/bundled/` (and everything inside it) is written exclusively by
+   * the automatic bundled-software sync (src-tauri/src/bundled.rs) — never
+   * by an administrator, and never discovered by a manual scan/import. It
+   * must stay completely outside the scanner's scope: a disk scan that also
+   * walks that folder will see a plain directory with files in it, create a
+   * folder item for it, and re-parent the bundled items under that folder
+   * via rebuildTree() — silently undoing bundled.rs's own bookkeeping
+   * (which always writes parentId: null for these items) and collapsing
+   * them into one generic "Bundled" folder in the catalog.
+   */
+  function isBundledSubtree(path, softwareRoot) {
+    return Paths.isInside(path, Paths.join(softwareRoot, 'bundled'));
+  }
+
   var Scanner = {
     CHANGE: CHANGE,
 
@@ -108,9 +123,10 @@
 
       // Only items beneath the scanned root are in scope. Anything else in the
       // database (a different library root, a hand-added entry) is untouched —
-      // scanning "software" must not mark "manuals" as missing.
+      // scanning "software" must not mark "manuals" as missing. Same for
+      // anything under software/bundled — see isBundledSubtree() above.
       var inScope = db.items.filter(function (i) {
-        return Paths.isInside(i.path, softwareRoot);
+        return Paths.isInside(i.path, softwareRoot) && !isBundledSubtree(i.path, softwareRoot);
       });
 
       var byPath = new Map();
@@ -289,6 +305,8 @@
           return;
         }
 
+        if (isBundledSubtree(path, softwareRoot)) return;
+
         // The root folder itself is a container, not a catalog item.
         if (pathKey(path) === pathKey(softwareRoot)) return;
 
@@ -407,6 +425,7 @@
 
       db.items.forEach(function (item) {
         if (scopeRoot && !Paths.isInside(item.path, root)) return;
+        if (isBundledSubtree(item.path, root)) return;
 
         var parentPath = Paths.dirname(item.path);
 
